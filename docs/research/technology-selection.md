@@ -8,18 +8,18 @@
 
 | Architectural Concern | Selected Technology | Primary Trade-off Rationale | Key Reference |
 | :--- | :--- | :--- | :--- |
-| **Backend Runtime** | Python 3.11 + FastAPI + Pydantic v2 | Async I/O concurrency, strict runtime typing, ML/PyTorch ecosystem synergy. | [`src/`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/) |
-| **Unified Storage** | PostgreSQL 16 + `pgvector` 0.7 + GIN | Single datastore for relational RBAC, vector embeddings, and full-text search. | [ADR-001](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/docs/decisions/0001-postgresql-single-store.md) |
-| **Dense Embeddings** | `BAAI/bge-m3` (Local PyTorch) | 1024-dim dense geometry, multilingual (100+ languages), zero external API cost. | [`docs/learning/embeddings.md`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/docs/learning/embeddings.md) |
-| **Cross-Encoder Reranker**| `BAAI/bge-reranker-v2-m3` | Joint query-document attention scoring; improves Recall@5 from 62.4% to 84.2%. | [ADR-003](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/docs/decisions/0003-cross-encoder-reranking.md) |
-| **Agent Orchestration** | Custom State Machine | Pure Python deterministic state transitions; eliminates framework lock-in. | [ADR-004](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/docs/decisions/0004-custom-agent-state-machine.md) |
-| **LLM Synthesis Engine** | OpenAI `gpt-4o-mini` + Provider Bridge| High reasoning capability at low unit cost (~$0.0007/query); swappable via provider interface. | [`src/llm/provider.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/llm/provider.py) |
-| **User Interface** | Next.js 14 + React + Tailwind CSS | Server-side rendering, responsive conversational chat, citation inspection inspector. | [`apps/web/`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/apps/web/) |
-| **Distributed Telemetry**| OpenTelemetry + Self-Hosted Langfuse | Vendor-neutral wire protocol; local trace sovereignty and LLM cost accounting. | [ADR-007](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/docs/decisions/0007-opentelemetry-tracing.md) |
+| **Backend Runtime** | Python 3.11 + FastAPI + Pydantic v2 | Async I/O concurrency, strict runtime typing, ML/PyTorch ecosystem synergy. | [`src/`](../../src/) |
+| **Unified Storage** | PostgreSQL 16 + `pgvector` 0.7 + GIN | Single datastore for relational RBAC, vector embeddings, and full-text search. | [ADR-001](../decisions/0001-postgresql-single-store.md) |
+| **Dense Embeddings** | `BAAI/bge-m3` (Local PyTorch) | 1024-dim dense geometry, multilingual (100+ languages), zero external API cost. | [`embeddings.md`](../learning/embeddings.md) |
+| **Cross-Encoder Reranker**| `BAAI/bge-reranker-v2-m3` | Joint query-document attention scoring; improves Recall@5 from 62.4% to 84.2%. | [ADR-003](../decisions/0003-cross-encoder-reranking.md) |
+| **Agent Orchestration** | Custom State Machine | Pure Python deterministic state transitions; eliminates framework lock-in. | [ADR-004](../decisions/0004-custom-agent-state-machine.md) |
+| **LLM Synthesis Engine** | OpenAI `gpt-4o-mini` + Provider Bridge| High reasoning capability at low unit cost (~$0.0007/query); swappable via provider interface. | [`src/llm/provider.py`](../../src/llm/provider.py) |
+| **User Interface** | Next.js 14 + React + Tailwind CSS | Server-side rendering, responsive conversational chat, citation inspection inspector. | [`apps/web/`](../../apps/web/) |
+| **Distributed Telemetry**| OpenTelemetry + Self-Hosted Langfuse | Vendor-neutral wire protocol; local trace sovereignty and LLM cost accounting. | [ADR-007](../decisions/0007-opentelemetry-tracing.md) |
 | **Low-Latency Cache** | Redis 7 Alpine | In-memory key-value caching of embedding vectors, query results, and rate limits. | `docker-compose.yml` |
-| **Database Migrations** | Alembic + SQLAlchemy 2.0 | Declarative asynchronous schema migrations with reversible downgrade operations. | [`alembic/`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/alembic/) |
-| **Document Ingestion** | Docling (PDF) + Trafilatura (HTML) | Layout-aware structural parsing of tables, headings, and Markdown conversion. | [`src/ingestion/loaders.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/ingestion/loaders.py) |
-| **Evaluation Framework**| Ragas + Golden Benchmark | Automated CI quality gates measuring Faithfulness, Recall@K, and Hallucination rate. | [`docs/learning/rag-evaluation.md`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/docs/learning/rag-evaluation.md) |
+| **Database Migrations** | Alembic + SQLAlchemy 2.0 | Declarative asynchronous schema migrations with reversible downgrade operations. | [`alembic/`](../../alembic/) |
+| **Document Ingestion** | Docling (PDF) + Trafilatura (HTML) | Layout-aware structural parsing of tables, headings, and Markdown conversion. | [`src/ingestion/loaders.py`](../../src/ingestion/loaders.py) |
+| **Evaluation Framework**| Ragas + Golden Benchmark | Automated CI quality gates measuring Faithfulness, Recall@K, and Hallucination rate. | [`rag-evaluation.md`](../learning/rag-evaluation.md) |
 
 ---
 
