@@ -10,7 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.app.core.db import get_session
 from apps.api.app.deps.auth import AuthUser, get_current_user
-from apps.api.app.services.search_service import search_chunks
 
 router = APIRouter()
 
@@ -41,6 +40,9 @@ class SearchResponse(BaseModel):
     results: list[ScoredChunk]
     trace_id: str
     latency_ms: int
+
+
+from apps.api.app.services.search_service import search_chunks  # noqa: E402
 
 
 @router.post("", response_model=SearchResponse)
