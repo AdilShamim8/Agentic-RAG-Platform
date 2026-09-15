@@ -28,13 +28,13 @@ Do NOT persist:
 - Sensitive personal information (health, family, etc.)
 
 For each memory, return JSON:
-{
+{{
   "memories": [
-    {"scope": "user_pref|project_context|recurring_question|decision", "content": "...", "confidence": 0.0..1.0, "ttl_days": null|int}
+    {{"scope": "user_pref|project_context|recurring_question|decision", "content": "...", "confidence": 0.0..1.0, "ttl_days": null|int}}
   ]
-}
+}}
 
-If nothing is worth persisting, return {"memories": []}.
+If nothing is worth persisting, return {{"memories": []}}.
 
 USER QUESTION:
 {question}
