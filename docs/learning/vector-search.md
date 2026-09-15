@@ -37,7 +37,7 @@ USING ivfflat (embedding vector_cosine_ops)
 WITH (lists = 100);
 ```
 
-- **Lists Parameter**: Configured to `lists = 100` in [`alembic/versions/0001_init_schema.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/alembic/versions/0001_init_schema.py). A common sizing rule is $lists \approx \sqrt{N}$ for corpora up to 1M chunks.
+- **Lists Parameter**: Configured to `lists = 100` in [`alembic/versions/0001_init_schema.py`](../../alembic/versions/0001_init_schema.py). A common sizing rule is $lists \approx \sqrt{N}$ for corpora up to 1M chunks.
 - **Search Probing**: At query time, PostgreSQL probes only the nearest `ivfflat.probes` centroids rather than inspecting every cluster:
   ```sql
   SET ivfflat.probes = 10;
@@ -64,7 +64,7 @@ pgvector supports three vector operators. The platform standardizes on **Cosine 
 | `<->` | **Euclidean / L2 Distance** | $\sqrt{\sum (u_i - v_i)^2}$ | Computer vision, spatial embeddings, physical coordinates |
 
 ### Similarity Score Calculation
-Cosine distance returns a value where $0.0$ indicates identical vectors and $2.0$ indicates opposite vectors. In [`src/retrieval/dense.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/retrieval/dense.py), similarity scores are mapped to a $[0, 1]$ range:
+Cosine distance returns a value where $0.0$ indicates identical vectors and $2.0$ indicates opposite vectors. In [`src/retrieval/dense.py`](../../src/retrieval/dense.py), similarity scores are mapped to a $[0, 1]$ range:
 $$\text{Score} = 1 - (\text{chunk.embedding} \Leftrightarrow \text{query.embedding})$$
 
 ---
@@ -86,7 +86,7 @@ Pre-Filtering (SECURE - ENFORCED IN OUR PLATFORM):
 3. User consistently receives Top K fully authorized documents.
 ```
 
-The platform executes pre-filtering using a single unified SQL query in [`src/retrieval/dense.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/retrieval/dense.py):
+The platform executes pre-filtering using a single unified SQL query in [`src/retrieval/dense.py`](../../src/retrieval/dense.py):
 
 ```sql
 WITH authorized AS (
@@ -118,11 +118,11 @@ ORDER BY score DESC;
 
 ### 5.2 Cold Index Full Scans
 - **Failure**: On an unindexed table, executing `<=>` triggers a full sequential disk scan. On 500,000 chunks, query latency jumps from 12ms to 4.2 seconds.
-- **Mitigation**: Database migrations in [`alembic/versions/0001_init_schema.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/alembic/versions/0001_init_schema.py) create the index automatically, and the health check endpoint [`/health/ready`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/apps/api/app/routers/health.py) verifies index presence before marking API pods healthy.
+- **Mitigation**: Database migrations in [`alembic/versions/0001_init_schema.py`](../../alembic/versions/0001_init_schema.py) create the index automatically, and the health check endpoint [`/health/ready`](../../apps/api/app/routers/health.py) verifies index presence before marking API pods healthy.
 
 ### 5.3 Empty / Degraded IVF Clusters
 - **Failure**: If an IVFFlat index is created when the table has only 10 rows, the 100 centroids collapse onto those 10 points. Subsequent inserts of 50,000 rows will perform sub-optimally.
-- **Mitigation**: The ingestion pipeline in [`scripts/seed.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/scripts/seed.py) executes `REINDEX INDEX ix_document_chunks_embedding_ivfflat;` immediately following bulk document imports.
+- **Mitigation**: The ingestion pipeline in [`scripts/seed.py`](../../scripts/seed.py) executes `REINDEX INDEX ix_document_chunks_embedding_ivfflat;` immediately following bulk document imports.
 
 ---
 
