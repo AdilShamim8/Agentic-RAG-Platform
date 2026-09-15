@@ -17,14 +17,14 @@ Hybrid retrieval combines dense vector search (`pgvector` cosine similarity with
 
 $$RRF(d) = \sum_{m \in M} \frac{1}{k + r_m(d)}$$
 
-Where $k = 60$, $M = \{\text{dense}, \text{lexical}\}$, and $r_m(d)$ is the 1-based rank of document $d$ in method $m$. See [ADR-002](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/docs/decisions/0002-hybrid-retrieval.md) and [`src/retrieval/hybrid.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/retrieval/hybrid.py).
+Where $k = 60$, $M = \{\text{dense}, \text{lexical}\}$, and $r_m(d)$ is the 1-based rank of document $d$ in method $m$. See [ADR-002](../decisions/0002-hybrid-retrieval.md) and [`src/retrieval/hybrid.py`](../../src/retrieval/hybrid.py).
 
 ---
 
 ### Q: Why embeddings? Why not just BM25 / Lexical Search?
 
 **Answer:**
-Embeddings capture dense semantic geometry — mapping synonymous concepts to proximal coordinates in 1024-dimensional vector space regardless of surface vocabulary overlap. For example, a query like *"how does the company support work-life balance?"* yields zero lexical overlap against a section titled *"wellness stipend and flexible core hours"*, causing BM25/FTS to return empty or irrelevant results. Dense embeddings bridge vocabulary mismatch. See [`docs/learning/embeddings.md`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/docs/learning/embeddings.md).
+Embeddings capture dense semantic geometry — mapping synonymous concepts to proximal coordinates in 1024-dimensional vector space regardless of surface vocabulary overlap. For example, a query like *"how does the company support work-life balance?"* yields zero lexical overlap against a section titled *"wellness stipend and flexible core hours"*, causing BM25/FTS to return empty or irrelevant results. Dense embeddings bridge vocabulary mismatch. See [`docs/learning/embeddings.md`](../learning/embeddings.md).
 
 ---
 
@@ -42,7 +42,7 @@ Because cross-encoders are computationally expensive (~340ms p95 on CPU for 50 p
 1. **Stage 1 (Retrieval)**: Rapidly retrieve 50 candidates via parallelized dense + lexical FTS (<50ms).
 2. **Stage 2 (Reranking)**: Cross-encoder scores and reranks the top 50 down to the top 5 highest-fidelity chunks.
 
-This yielded a +21.8% jump in Recall@5 (62.4% -> 84.2%) and MRR increase from 0.58 to 0.81. See [ADR-003](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/docs/decisions/0003-cross-encoder-reranking.md) and [`src/reranking/cross_encoder.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/reranking/cross_encoder.py).
+This yielded a +21.8% jump in Recall@5 (62.4% -> 84.2%) and MRR increase from 0.58 to 0.81. See [ADR-003](../decisions/0003-cross-encoder-reranking.md) and [`src/reranking/cross_encoder.py`](../../src/reranking/cross_encoder.py).
 
 ---
 
@@ -55,7 +55,7 @@ We evaluated 4 chunking strategies on our golden dataset:
 3. Semantic chunking (embedding distance variance thresholding)
 4. Structure-aware chunking (Markdown/HTML hierarchy headers + semantic fallback)
 
-Fixed and sliding chunking arbitrarily split sentences, tables, and parent-child conceptual hierarchies across chunk boundaries, separating context from questions and degrading retrieval recall. Structure-aware chunking preserves document semantic units (sections, sub-headings, tables) while enforcing token limits (256–512 tokens via `tiktoken`) with SHA-256 deduplication. Structure-aware chunking won with **88.6% Recall@5** vs 71.4% for fixed-token. See [`evals/reports/chunking_comparison.md`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/evals/reports/chunking_comparison.md) and [`src/ingestion/chunking.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/ingestion/chunking.py).
+Fixed and sliding chunking arbitrarily split sentences, tables, and parent-child conceptual hierarchies across chunk boundaries, separating context from questions and degrading retrieval recall. Structure-aware chunking preserves document semantic units (sections, sub-headings, tables) while enforcing token limits (256–512 tokens via `tiktoken`) with SHA-256 deduplication. Structure-aware chunking won with **88.6% Recall@5** vs 71.4% for fixed-token. See [`evals/reports/chunking_comparison.md`](../../evals/reports/chunking_comparison.md) and [`src/ingestion/chunking.py`](../../src/ingestion/chunking.py).
 
 ---
 
@@ -106,9 +106,9 @@ Linear pipelines (Retrieve -> Augment -> Generate) make an irreversible bet on t
 - The retrieval quality cannot be validated prior to generation.
 - Missing context results in silent hallucination.
 
-Our Agentic RAG workflow uses a LangGraph-style state machine ([`src/agents/orchestrator.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/agents/orchestrator.py)):
+Our Agentic RAG workflow uses a LangGraph-style state machine ([`src/agents/orchestrator.py`](../../src/agents/orchestrator.py)):
 1. **Classify**: Routes into direct response, single-hop RAG, multi-hop decomposition, or safe refusal.
-2. **Retrieve & Validate**: Executes targeted sub-queries and passes candidates through an `EvidenceValidator` ([`src/agents/evidence_validator.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/agents/evidence_validator.py)).
+2. **Retrieve & Validate**: Executes targeted sub-queries and passes candidates through an `EvidenceValidator` ([`src/agents/evidence_validator.py`](../../src/agents/evidence_validator.py)).
 3. **Reflect & Iterate**: If evidence is incomplete, generates targeted follow-up queries.
 4. **Attribution Guarantee**: Synthesizes responses strictly from validated evidence chunks, ensuring 100% citation coverage.
 
@@ -117,7 +117,7 @@ Our Agentic RAG workflow uses a LangGraph-style state machine ([`src/agents/orch
 ### Q: How do you prevent infinite loops and runaway execution in autonomous agents?
 
 **Answer:**
-We implement **4 hard defense boundaries** in [`src/agents/orchestrator.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/agents/orchestrator.py):
+We implement **4 hard defense boundaries** in [`src/agents/orchestrator.py`](../../src/agents/orchestrator.py):
 1. **Step Budget Limit**: Enforces `max_steps = 8`.
 2. **Tool Invocation Limit**: Enforces `max_tool_calls = 10`.
 3. **Global Wall-Clock Timeout**: Enforces `global_timeout_s = 30.0` wrapped inside an `asyncio.timeout()` context manager.
@@ -168,7 +168,7 @@ Indirect prompt injection occurs when an untrusted third-party document contains
 
 We implement **5 layers of defense-in-depth**:
 1. **Pre-Ingestion / Pre-Query Regex Scanner**: Scans for 10 high-risk patterns (`ignore previous instructions`, `system prompt:`, `system override:`, `eval\(`, etc.).
-2. **Adversarial Classifier LLM-Judge**: Evaluates query and document payloads for deceptive framing ([`prompts/v1/adversarial_classifier.md`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/prompts/v1/adversarial_classifier.md)).
+2. **Adversarial Classifier LLM-Judge**: Evaluates query and document payloads for deceptive framing ([`prompts/v1/adversarial_classifier.md`](../../prompts/v1/adversarial_classifier.md)).
 3. **XML Tag Isolation**: Retrieved text is encapsulated in `<retrieved_document>` blocks. The system prompt instructs the model that contents inside these tags represent untrusted passive data and must never be interpreted as operational instructions.
 4. **Pydantic Tool Parameter Bounds**: Tool calls enforce strict schema validation (e.g., `top_k: conint(ge=1, le=50)`), preventing model exploitation from extracting unbounded data.
 5. **Output Sanitizer & Leakage Detector**: Scans generated output before streaming to ensure no system instructions or unauthorized tokens are leaked.
@@ -186,7 +186,7 @@ Pre-retrieval filtering executes the authorization check in PostgreSQL `WHERE` c
 ```sql
 WHERE rag.access_matches(d.access_policy, :user_role, :user_projects, :user_id)
 ```
-This guarantees 100% access isolation, zero trace leakage, and optimal top-$K$ recall. See [ADR-008](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/docs/decisions/0008-rbac-security.md).
+This guarantees 100% access isolation, zero trace leakage, and optimal top-$K$ recall. See [ADR-008](../decisions/0008-rbac-security.md).
 
 ---
 
