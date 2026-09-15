@@ -62,7 +62,7 @@ Verified Response with Grounded Citations & OpenTelemetry Trace ID
 - **Cross-Encoder Reranking**: `BAAI/bge-reranker-v2-m3` scores the top 50 candidates, passing the top 5 highest-fidelity chunks to the generation context.
 
 ### 4.2. Autonomous State Machine & Loop Bounds
-Implemented in pure Python ([`src/agents/orchestrator.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/agents/orchestrator.py)), governed by four mathematical invariants:
+Implemented in pure Python ([`src/agents/orchestrator.py`](../src/agents/orchestrator.py)), governed by four mathematical invariants:
 1. `max_steps = 8`
 2. `max_tool_calls = 10`
 3. `global_timeout_s = 30.0`
