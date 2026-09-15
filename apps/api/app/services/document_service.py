@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.app.deps.auth import AuthUser
-from apps.api.app.routers.documents import DocumentOut
+
+if TYPE_CHECKING:
+    from apps.api.app.routers.documents import DocumentOut
 
 
 async def list_documents(

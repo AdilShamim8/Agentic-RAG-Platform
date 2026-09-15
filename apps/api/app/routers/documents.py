@@ -10,13 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.app.core.db import get_session
 from apps.api.app.deps.auth import AuthUser, get_current_user, require_permission
-from apps.api.app.services.document_service import (
-    get_document,
-    get_document_versions,
-    ingest_upload,
-    list_documents,
-    soft_delete_document,
-)
 
 router = APIRouter()
 
@@ -39,6 +32,15 @@ class DocumentDetail(DocumentOut):
     effective_to: str | None
     source: str
     chunk_count: int
+
+
+from apps.api.app.services.document_service import (  # noqa: E402
+    get_document,
+    get_document_versions,
+    ingest_upload,
+    list_documents,
+    soft_delete_document,
+)
 
 
 @router.get("", response_model=list[DocumentOut])
