@@ -31,7 +31,7 @@ CITATION_CORRECTNESS_PROMPT = """You are a citation correctness judge.
 
 For each citation marker [N] in the answer, decide whether the cited evidence actually supports the claim.
 
-Return JSON: {"correctness": 0.0..1.0, "issues": ["..."]}
+Return JSON: {{"correctness": 0.0..1.0, "issues": ["..."]}}
 
 ANSWER:
 {answer}
@@ -56,7 +56,7 @@ async def citation_correctness(
 HALLUCINATION_PROMPT = """You are a hallucination detector. Given an answer and the supporting evidence,
 list every claim in the answer that is NOT supported by the evidence.
 
-Return JSON: {"unsupported_claims": ["...", "..."], "rate": 0.0..1.0}
+Return JSON: {{"unsupported_claims": ["...", "..."], "rate": 0.0..1.0}}
 Where rate = len(unsupported_claims) / total_claims.
 
 ANSWER:
