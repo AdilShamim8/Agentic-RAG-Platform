@@ -18,7 +18,7 @@
 
 ## 2. Multi-Layered Defense Architecture
 
-We implement a 5-layer defense-in-depth framework located in [`src/security/prompt_injection.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/security/prompt_injection.py):
+We implement a 5-layer defense-in-depth framework located in [`src/security/prompt_injection.py`](../../src/security/prompt_injection.py):
 
 ```
 User Query / Document Ingestion
@@ -152,6 +152,6 @@ If an injection succeeds in extracting the system prompt or bypassing safety, th
 ## 4. Verification & Testing Suite
 
 Automated verification is executed via:
-- Unit tests: [`tests/security/test_prompt_injection.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/tests/security/test_prompt_injection.py)
-- Adversarial integration test matrix: [`docs/security/adversarial-report.md`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/docs/security/adversarial-report.md)
+- Unit tests: [`tests/security/test_prompt_injection.py`](../../tests/security/test_prompt_injection.py)
+- Adversarial integration test matrix: [`adversarial-report.md`](adversarial-report.md)
 
