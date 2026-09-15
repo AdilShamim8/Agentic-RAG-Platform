@@ -64,7 +64,7 @@ Items identified by **both** retrieval mechanisms receive a substantial promotio
 ## 3. Implementation in the Codebase
 
 ### 3.1 The Fusion Algorithm
-Implemented in [`src/retrieval/hybrid.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/retrieval/hybrid.py):
+Implemented in [`src/retrieval/hybrid.py`](../../src/retrieval/hybrid.py):
 
 ```python
 def rrf_fuse(
@@ -95,7 +95,7 @@ def rrf_fuse(
 ```
 
 ### 3.2 Concurrent Asynchronous Execution
-In [`src/retrieval/engine.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/retrieval/engine.py), the platform executes dense and lexical retrieval in parallel using Python's `asyncio.gather`:
+In [`src/retrieval/engine.py`](../../src/retrieval/engine.py), the platform executes dense and lexical retrieval in parallel using Python's `asyncio.gather`:
 
 ```python
 dense_task = dense_retrieve(query=query, user=user, session=session, top_k=candidate_count, filters=filters)
@@ -128,7 +128,7 @@ Hybrid RRF improves Recall@5 by **+16.2 percentage points** over dense-only retr
 
 ### 5.1 Noise Injection from Weak Retrievers
 - **Failure**: If a user enters a complex multi-sentence query with filler words, lexical search can return irrelevant chunks that merely share stop words.
-- **Mitigation**: `plainto_tsquery` automatically drops common English stop words. Furthermore, candidate lists pass through cross-encoder reranking in [`src/reranking/cross_encoder.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/reranking/cross_encoder.py) before reaching the generator.
+- **Mitigation**: `plainto_tsquery` automatically drops common English stop words. Furthermore, candidate lists pass through cross-encoder reranking in [`src/reranking/cross_encoder.py`](../../src/reranking/cross_encoder.py) before reaching the generator.
 
 ### 5.2 Simultaneous Miss on Temporal Queries
 - **Failure**: A query asking for *"the latest update to our travel allowance"* might retrieve an expired 2021 document if both dense and lexical match it strongly.
