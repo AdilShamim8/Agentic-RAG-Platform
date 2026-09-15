@@ -11,7 +11,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.app.core.db import get_session
 from apps.api.app.deps.auth import AuthUser, get_current_user
-from apps.api.app.services.query_service import run_agentic_query
 
 router = APIRouter()
 
@@ -42,6 +41,9 @@ class QueryResponse(BaseModel):
     confidence: str  # low | medium | high
     failure: str | None = None
     metadata: dict = Field(default_factory=dict)
+
+
+from apps.api.app.services.query_service import run_agentic_query  # noqa: E402
 
 
 @router.post("", response_model=QueryResponse)
