@@ -152,6 +152,68 @@ class _AnthropicProvider(BaseLLMProvider):
         )
 
 
+class _MockLLMProvider(BaseLLMProvider):
+    """Mock LLM provider used when a test API key (e.g. sk-test) is supplied."""
+
+    def __init__(self, model: str = "gpt-4o-mini") -> None:
+        self._model = model
+
+    async def complete(
+        self,
+        prompt: str,
+        *,
+        temperature: float = 0.0,
+        max_tokens: int = 1024,
+        stop: list[str] | None = None,
+    ) -> LLMResponse:
+        prompt_lower = prompt.lower()
+        if "query classifier" in prompt_lower:
+            text = json.dumps(
+                {"class": "simple_factual", "confidence": 1.0, "rationale": "Factual query"}
+            )
+        elif "planner" in prompt_lower:
+            text = json.dumps(
+                {
+                    "steps": [
+                        {
+                            "sub_question": "remote work policy",
+                            "tool": "search_documents",
+                            "tool_args": {"query": "remote work policy"},
+                        }
+                    ],
+                    "rationale": "Search relevant documents",
+                }
+            )
+        elif "evidence sufficiency" in prompt_lower:
+            text = json.dumps({"sufficient": True, "reason": "Sufficient evidence found"})
+        elif "citation correctness" in prompt_lower:
+            text = json.dumps({"correctness": 1.0, "issues": []})
+        elif "citation verifier" in prompt_lower:
+            import re
+
+            chunk_ids = re.findall(r"\[chunk_id=([^\]]+)\]", prompt)
+            results = [{"chunk_id": cid, "claim": "claim", "supported": True} for cid in chunk_ids]
+            text = json.dumps({"results": results})
+        elif "hallucination" in prompt_lower:
+            text = json.dumps({"unsupported_claims": [], "rate": 0.0})
+        elif "memory extractor" in prompt_lower:
+            text = json.dumps({"memories": []})
+        elif "prompt injection" in prompt_lower:
+            text = json.dumps({"is_injection": False, "confidence": 0.0, "reason": "benign"})
+        else:
+            text = "Employees are eligible to work remotely up to 3 days per week according to the company policy [1]."
+
+        tokens_in = len(prompt.split())
+        tokens_out = len(text.split())
+        return LLMResponse(
+            text=text,
+            tokens_in=tokens_in,
+            tokens_out=tokens_out,
+            cost_usd=compute_cost(self._model, tokens_in, tokens_out),
+            model=self._model,
+        )
+
+
 _llm: Any = None
 
 
@@ -159,7 +221,9 @@ def get_llm_provider() -> Any:
     """Singleton accessor."""
     global _llm
     if _llm is None:
-        if settings.anthropic_api_key and settings.openai_default_model.startswith("claude"):
+        if settings.openai_api_key.startswith("sk-test"):
+            _llm = _MockLLMProvider(model=settings.openai_default_model)
+        elif settings.anthropic_api_key and settings.openai_default_model.startswith("claude"):
             _llm = _AnthropicProvider(model=settings.anthropic_default_model)
         else:
             _llm = _OpenAIProvider(model=settings.openai_default_model)
