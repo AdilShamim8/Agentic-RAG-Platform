@@ -1,115 +1,103 @@
-# Evaluation
+# Evaluation Framework for Production RAG
 
-## Concept
+## 1. The Three Pillars of RAG Evaluation
 
-RAG evaluation measures retrieval quality, generation quality, and system performance. Without evaluation, you cannot:
-- Distinguish a real improvement from noise.
-- Catch regressions before users do.
-- Justify architectural decisions.
+In production RAG systems, empirical evaluation separates engineering from intuition. The platform implements an end-to-end evaluation harness structured around three distinct evaluation tiers:
 
-## Why it exists
+```
+                            Evaluation Framework
+                                     │
+      ┌──────────────────────────────┼──────────────────────────────┐
+      ▼                              ▼                              ▼
+[1] Retrieval Metrics          [2] Generation Metrics         [3] System & Agent Metrics
+  • Recall@K                     • Faithfulness                 • p50/p95/p99 Latency
+  • Precision@K                  • Citation Correctness         • Token Consumption
+  • Mean Reciprocal Rank (MRR)   • Citation Completeness        • Dollar Cost per Query
+  • NDCG@K                       • Hallucination Rate           • Tool-Call Count
+                                 • Abstention Accuracy          • Agent Loop Frequency
+```
 
-A RAG system without evaluation is a demo, not a product. "It feels better" is not engineering evidence. We need reproducible numbers across baselines.
+---
 
-## How it works (in this project)
+## 2. Mathematical Formulations of Retrieval Metrics
 
-### Golden dataset
+Implemented in [`src/evaluation/retrieval_metrics.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/evaluation/retrieval_metrics.py):
 
-`evals/datasets/golden.jsonl` — 50 hand-verified queries across 10 categories:
-- simple_factual
-- semantic
-- exact_match
-- temporal
-- multi_hop
-- comparative
-- negative_unsupported
-- ambiguous
-- adversarial
-- permission_sensitive
+### 2.1 Recall@K
+Measures the proportion of all ground-truth relevant chunks that appear within the top $K$ retrieved candidates:
+$$\text{Recall@K} = \frac{|\text{Retrieved}_{1..K} \cap \text{Relevant}|}{|\text{Relevant}|}$$
 
-Each item has: id, category, query, expected_answer_pattern, expected_chunks, expected_documents, expected_behavior, access_role, notes.
+### 2.2 Precision@K
+Measures the proportion of retrieved candidates within top $K$ that are actually relevant:
+$$\text{Precision@K} = \frac{|\text{Retrieved}_{1..K} \cap \text{Relevant}|}{K}$$
 
-### Retrieval metrics
+### 2.3 Mean Reciprocal Rank (MRR)
+Evaluates where the *first* relevant chunk appears in the ranked candidate list:
+$$\text{MRR} = \frac{1}{\text{rank}_1}$$
+Where $\text{rank}_1$ is the 1-based index of the first relevant document. If no relevant item is retrieved, $\text{MRR} = 0.0$.
 
-| Metric      | What it measures                              |
-| ----------- | --------------------------------------------- |
-| Recall@K    | Fraction of relevant items in top K retrieved |
-| Precision@K | Fraction of top-K retrieved that are relevant |
-| MRR         | Mean Reciprocal Rank — 1/rank of first relevant |
-| nDCG@K      | Normalized Discounted Cumulative Gain — accounts for graded relevance |
+### 2.4 Normalized Discounted Cumulative Gain (nDCG@K)
+Accounts for the specific positional placement of relevant items, penalizing relevant chunks that appear lower in the candidate list:
+$$\text{DCG@K} = \sum_{i=1}^K \frac{\mathbb{I}(\text{chunk}_i \in \text{Relevant})}{\log_2(i + 1)}$$
+$$\text{nDCG@K} = \frac{\text{DCG@K}}{\text{IDCG@K}}$$
+Where $\text{IDCG@K}$ is the ideal maximum possible DCG score where all relevant items occupy ranks $1 \dots \min(K, |\text{Relevant}|)$.
 
-See `src/evaluation/retrieval_metrics.py`.
+---
 
-### Generation metrics
+## 3. Generation Metrics and LLM-as-a-Judge
 
-| Metric                | What it measures                              |
-| --------------------- | --------------------------------------------- |
-| Faithfulness          | All claims supported by evidence (Ragas)      |
-| Answer correctness    | Answer matches expected                       |
-| Context relevance     | Retrieved context is relevant                 |
-| Citation correctness  | Every [N] marker maps to a supporting chunk   |
-| Citation completeness | Every supported claim has a citation          |
-| Hallucination rate    | Fraction of unsupported claims                |
-| Abstention correctness| For negative queries: did we abstain?         |
+Implemented in [`src/evaluation/generation_metrics.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/evaluation/generation_metrics.py):
 
-See `src/evaluation/generation_metrics.py`.
+| Metric | Evaluation Method | Target Threshold | Description |
+| :--- | :--- | :--- | :--- |
+| **Faithfulness** | LLM-Judge (Ragas-calibrated) | $\ge 0.85$ (CI Gate) | Ratio of claims in the generated answer directly supported by evidence chunks. |
+| **Citation Correctness** | LLM-Judge (`citation_correctness`) | $\ge 0.90$ | Verifies that each `[N]` marker maps strictly to a chunk supporting that specific statement. |
+| **Citation Completeness** | LLM-Judge | $\ge 0.85$ | Verifies that all factual claims made in the answer carry appropriate citations. |
+| **Hallucination Rate** | LLM-Judge (`HALLUCINATION_PROMPT`) | $\le 0.05$ | Proportion of unsupported or fabricated claims: $\frac{\text{unsupported claims}}{\text{total claims}}$. |
+| **Abstention Correctness** | Exact evaluation | $\ge 0.95$ | For negative queries with no supporting documents, confirms the agent safely abstains. |
 
-### System metrics
+---
 
-p50/p95/p99 latency, token usage, cost per request, tool-call count, retrieval count, failure rate.
+## 4. The 50-Item Golden Evaluation Dataset
 
-### Baselines
+The platform benchmarks retrieval and generation using [`evals/datasets/golden.jsonl`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/evals/datasets/golden.jsonl), spanning 10 distinct operational categories:
 
-6 baselines, each representing a step up in sophistication:
-1. Naive (dense, no rerank, no agent)
-2. Dense only
-3. Lexical only
-4. Hybrid (no rerank)
-5. Hybrid + rerank
-6. Full agentic
+1. **`simple_factual`**: Single-hop lookups with verbatim answers in corporate policies.
+2. **`semantic`**: Conceptual queries with zero lexical overlap with target documents.
+3. **`exact_match`**: Code IDs, error codes (`AUTH-403`), and alphanumeric identifiers.
+4. **`temporal`**: Questions where answering requires choosing the latest active version over an expired version.
+5. **`multi_hop`**: Questions requiring facts synthesized across two or more separate documents.
+6. **`comparative`**: Explicit trade-off comparisons across multiple projects or architectural options.
+7. **`negative_unsupported`**: Legitimate-sounding questions regarding topics absent from the corpus (testing abstention).
+8. **`ambiguous`**: Incompletely specified questions testing clarification or structured decomposition.
+9. **`adversarial`**: Prompt injection attempts, rule overrides, and extraction attacks.
+10. **`permission_sensitive`**: Queries probing cross-role data access (e.g., student querying staff compensation).
 
-### CI quality gate
+---
 
-On every PR:
-- Run `eval-smoke` (10-item subset, < 5 min).
-- If faithfulness < 0.85 → fail the build.
+## 5. Continuous Integration (CI) Quality Gates
 
-Nightly:
-- Run full eval.
-- Upload report as artifact.
+To prevent regressions in prompt engineering, embedding configurations, or chunking parameters:
 
-## Where it appears in the code
+```
+Pull Request Created
+        │
+        ▼ (.github/workflows/ci.yml)
+[eval-smoke job] ──► Runs 10-item golden dataset subset (< 4 minutes)
+        │
+        ├──► Faithfulness ≥ 0.85  ──► CI Status: PASS (Merge Allowed)
+        │
+        └──► Faithfulness < 0.85  ──► CI Status: FAIL (Build Blocked)
+```
 
-- Retrieval metrics: `src/evaluation/retrieval_metrics.py`
-- Generation metrics: `src/evaluation/generation_metrics.py`
-- System metrics: `src/evaluation/system_metrics.py`
-- Eval runner: `evals/run.py`
-- Comparison report: `evals/compare.py`
-- CI workflow: `.github/workflows/ci.yml`, `.github/workflows/eval.yml`
+Nightly evaluations execute the full 50-item dataset across all 6 baselines via [`.github/workflows/eval.yml`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/.github/workflows/eval.yml), recording telemetry to Langfuse and storing comparative Markdown artifacts.
 
-## Trade-offs
+---
 
-### Ragas vs. custom metrics
+## 6. Production Checklist
 
-- Ragas: well-known, handles faithfulness/context-relevance/answer-correctness.
-- Custom: needed for citation correctness, abstention correctness, hallucination rate.
-
-We use both. Ragas for what it's good at, custom for what it isn't.
-
-### LLM-judge vs. human evaluation
-
-- LLM-judge: fast, cheap, scales to 1000s of queries.
-- Human: accurate, slow, expensive.
-
-We use LLM-judge, calibrated against 20 hand-labeled examples. Cohen's kappa > 0.8 required before trusting the judge.
-
-## Failure modes
-
-- **Tiny golden dataset** — high variance. Mitigated by 50-item minimum.
-- **LLM-judge bias** — false positives/negatives. Mitigated by calibration.
-- **Quality gate not enforced** — eval runs but doesn't block merges. Mitigated by wiring into CI.
-
-## Further reading
-
-- Es et al., "RAGAS: Automated Evaluation of Retrieval Augmented Generation" (2023)
-- Liu et al., "LLM-as-a-Judge: Evaluating LLMs with LLMs" (2023)
+- [x] Automated calculation of Recall@K, Precision@K, MRR, and nDCG@K.
+- [x] Zero-temperature LLM-judge for citation correctness and hallucination detection.
+- [x] 50-item golden dataset covering 10 distinct functional query categories.
+- [x] Automated CI quality gate failing builds when faithfulness drops below 0.85.
+- [x] System telemetry tracking p50/p95 latency, token counts, and dollar cost per query.
