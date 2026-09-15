@@ -1,17 +1,95 @@
 # Agentic Reasoning and LLM Architecture Principles
 
-Authored by: Andrej Karpathy (@karpathy)
-Reviewed by: Adil Shamim (@AdilShamim8)
+> Foundational architectural guidelines, cognitive reasoning paradigms, and verification invariants for autonomous agentic retrieval-augmented generation systems.
 
-## 1. System 1 vs. System 2 in Agentic RAG
-Modern Agentic RAG platforms bridge the gap between fast pattern matching (System 1) and deliberative, iterative reasoning (System 2):
-- **Iterative Retrieval**: Instead of a single retrieval shot, agents formulate sub-queries, inspect candidate evidence, and backtrack if the evidence is insufficient or contradictory.
-- **Thinking and Tool Use**: Decouple the reasoning loop from external tool execution. Always preserve intermediate tool observations in the conversation context without leaking internal scratchpads to the end user.
+**Authored by**: Andrej Karpathy (@karpathy)  
+**Reviewed by**: Adil Shamim (@AdilShamim8)  
 
-## 2. Hallucination Mitigation & Citation Verification
-- Ground every factual claim directly to an immutable document chunk via exact span offsets or semantic validation.
-- Maintain pre-retrieval role-based access control (RBAC) at the database layer (PostgreSQL Row-Level Security and filter parameters) rather than filtering after vector retrieval.
+---
 
-## 3. Evaluation-Driven Iteration
-- Establish strict golden datasets with automated faithfulness and hallucination rate quality gates in CI/CD pipelines.
-- Continuous evaluation prevents prompt regression and preserves high retrieval precision across diverse document types.
+## 1. System 1 vs. System 2 Cognitive Reasoning in RAG
+
+Standard retrieval pipelines (Naive RAG) operate analogously to **System 1** human cognition: fast, intuitive, parallel, but prone to cognitive shortcuts and superficial pattern matching. An input query is translated into a single embedding vector, a single similarity search is dispatched, and the LLM generates a response in a single forward pass without reflection.
+
+```
+System 1 (Naive RAG):
+Query ───> Vector Search ───> Prompt Stuffer ───> Autoregressive Generation (One-Shot)
+
+System 2 (Agentic RAG):
+Query ───> Intent Classification ───> Sub-Query Planning
+               │                             │
+               ▼                             ▼
+        Direct Refusal              Tool Execution (Hybrid Search)
+                                             │
+                                             ▼
+                              Evidence Sufficiency Evaluation
+                                      │              │
+                           (Incomplete)              (Sufficient)
+                                      ▼                      ▼
+                            Iterative Reformulation    Grounded Synthesis
+                                                             │
+                                                             ▼
+                                                    Citation Verification
+```
+
+In contrast, **Agentic RAG** implements **System 2** deliberative reasoning:
+1. **Multi-Turn Decomposition**: Breaking complex queries into structured dependency graphs of sub-questions.
+2. **Dynamic Query Reformulation**: If initial retrieval yields low similarity or incomplete evidence, the agent inspects the deficit and formulates targeted orthogonal queries.
+3. **Evidence Backtracking**: If two retrieved sources provide contradictory policy statements or dates, the agent pauses generation to evaluate document metadata, timestamps, and confidence rather than guessing.
+
+---
+
+## 2. Dynamic Tool Calling & State Machine Invariants
+
+To prevent reasoning drift and non-deterministic behavior, agent tool orchestration must adhere to strict state machine invariants:
+
+### 2.1. Tool Decoupling & Isolation
+- **Separation of Concerns**: The reasoning planner must never directly execute arbitrary shell or network requests. Tools are defined via immutable JSON schemas with typed Pydantic parameters.
+- **Context Hygiene**: Intermediate scratchpad thoughts and raw database errors must never be leaked to the user-facing response stream. They are isolated in internal state objects and emitted solely to OpenTelemetry tracing spans.
+
+### 2.2. Deterministic Termination Invariants
+Autonomous reasoning engines without bounded state machines risk unbounded token consumption and infinite loops. We enforce **four mathematical termination invariants**:
+
+1. **Step Bound**:
+   $$\text{StepCount} \le N_{\max} \quad (N_{\max} = 8)$$
+2. **Tool Invocation Ceiling**:
+   $$\text{ToolInvocations} \le M_{\max} \quad (M_{\max} = 10)$$
+3. **Global Wall-Clock Deadline**:
+   $$T_{\text{elapsed}} \le T_{\max} \quad (T_{\max} = 30.0\text{s})$$
+4. **Deterministic Loop Detection**:
+   Let tool invocation $k$ be represented by the tuple $(t_k, h_k)$, where $t_k$ is the tool name and $h_k = \text{SHA-256}(\text{canonical\_json}(\text{args}_k))$.
+   $$\text{If } (t_k, h_k) = (t_{k-1}, h_{k-1}) \implies \text{Halt with Status } \texttt{AGENT\_LOOP}$$
+
+---
+
+## 3. Hallucination Mitigation & Citation Verification
+
+LLMs generate fluent language based on conditional token probabilities, meaning fluency is completely orthogonal to factual accuracy. 
+
+### 3.1. Groundedness via Exact Attribution
+- Every factual claim generated by the model must be explicitly bound to an immutable document chunk ID via bracketed citation tokens: `[Doc-X]`.
+- An independent verification pass (`src/citations/validator.py`) parses these citation markers, extracts the underlying chunk text, and evaluates natural language entailment:
+
+$$\text{Entailment}(C, E_i) \in \{\text{Entailed}, \text{Neutral}, \text{Contradiction}\}$$
+
+If a claim is classified as *Neutral* (unsupported) or *Contradiction*, the citation is stripped or the claim is withheld.
+
+### 3.2. Pre-Retrieval SQL Authorization Invariant
+Permissions must be enforced at the storage engine layer, **before** vector similarity computation:
+
+$$\text{Candidates} = \operatorname{arg\,top\,k}_{d \in \mathcal{D}} \Big( \text{Sim}(q, d) \;\Big|\; \text{access\_matches}(d.\text{policy}, u.\text{role}, u.\text{projects}, u.\text{id}) = \text{TRUE} \Big)$$
+
+Post-retrieval filtering violates data privacy principles:
+- **Trace Leakage**: Unauthorized document metadata appears in debug logs and span traces.
+- **Recall Starvation**: Discarding unauthorized candidates leaves the LLM with an empty context window, provoking ungrounded hallucination.
+
+---
+
+## 4. Empirical Evaluation as an Engineering Contract
+
+1. **Continuous Regression Testing**: Prompts and retrieval configurations must be treated with the same engineering rigor as application code. Any change to system prompts, chunking algorithms, or temperature parameters must pass CI evaluation against the golden dataset.
+2. **Decoupled Metric Tracking**: Never evaluate RAG systems on end-to-end satisfaction alone. Independently track:
+   - **Retrieval Fidelity**: Recall@5, MRR, nDCG.
+   - **Generation Faithfulness**: Claim entailment ratio, citation precision, hallucination rate.
+3. **Calibrated Abstention**: An enterprise system that confidently provides incorrect answers is catastrophic. Safe abstention (`INSUFFICIENT_EVIDENCE`) is a successful, high-value outcome when corpus coverage is deficient.
+
