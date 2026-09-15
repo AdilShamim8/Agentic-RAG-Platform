@@ -21,7 +21,7 @@
 
 ## 2. Authorization & Pre-Retrieval RBAC
 
-- [x] **[PASS] Granular Role Taxonomy**: 5 roles defined (`student`, `employee`, `manager`, `professor`, `administrator`) in [`src/security/rbac.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/security/rbac.py).
+- [x] **[PASS] Granular Role Taxonomy**: 5 roles defined (`student`, `employee`, `manager`, `professor`, `administrator`) in [`src/security/rbac.py`](../../src/security/rbac.py).
 - [x] **[PASS] Fine-Grained Permissions**: Strict mapping of capabilities (`read:document`, `write:document`, `ingest`, `eval`, `admin`).
 - [x] **[PASS] Pre-Retrieval SQL Filtering**: PostgreSQL `rag.access_matches()` executes in the `WHERE` clause prior to vector similarity calculations.
   - *Verification*: `pytest tests/security/test_rbac.py -k test_employee_cannot_see_manager_only_chunk`
