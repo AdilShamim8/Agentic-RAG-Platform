@@ -29,7 +29,7 @@ Document: "Enterprise Security & Remote Work Policy (35 pages)"
 
 ## 2. Strategies Implemented in the Platform
 
-All four strategies are implemented in [`src/ingestion/chunking.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/ingestion/chunking.py) under the `Chunker` protocol:
+All four strategies are implemented in [`src/ingestion/chunking.py`](../../src/ingestion/chunking.py) under the `Chunker` protocol:
 
 ```python
 class Chunker(Protocol):
@@ -98,7 +98,7 @@ Respects the authored hierarchy of organizational documents (Markdown headings `
 
 ### 4.1 Fragmented Markdown Tables
 - **Failure**: Splitting an ASCII or Markdown table across chunk boundaries strips the column headers from the second chunk. The retrieval model cannot interpret the isolated rows.
-- **Mitigation**: The structure-aware chunker treats Markdown tables as atomic blocks. If a table exceeds 512 tokens, row-level chunking with header repetition is applied in [`src/ingestion/cleaning.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/ingestion/cleaning.py).
+- **Mitigation**: The structure-aware chunker treats Markdown tables as atomic blocks. If a table exceeds 512 tokens, row-level chunking with header repetition is applied in [`src/ingestion/cleaning.py`](../../src/ingestion/cleaning.py).
 
 ### 4.2 Orphaned Headings
 - **Failure**: A chunk ends with `## 4. Refund Policy` and the subsequent text begins in the next chunk. The heading has zero semantic content on its own.
