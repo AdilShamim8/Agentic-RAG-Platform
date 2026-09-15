@@ -114,7 +114,7 @@ Query Prometheus: `sum by (failure_type) (rate(rag_failure_total[5m]))`
    ```bash
    docker compose restart postgres
    ```
-5. If table corruption occurs, initiate disaster recovery restore from latest WAL/pg_dump backup (see [`docs/operations/backup-restore.md`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/docs/operations/backup-restore.md)).
+5. If table corruption occurs, initiate disaster recovery restore from latest WAL/pg_dump backup (see [`backup-restore.md`](backup-restore.md)).
 
 ---
 
