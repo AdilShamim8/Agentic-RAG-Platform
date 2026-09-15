@@ -1,129 +1,173 @@
-# Runbook — Agentic RAG Platform
+# Operations Runbook — Agentic RAG Platform
 
-> What to do when things go wrong.
+> Operational triage playbooks, incident management protocols, alert responses, and disaster recovery procedures for the Agentic RAG Platform.
 
-## Triage flow
+---
 
-1. Check `/health/ready` — is the system reporting degraded?
-2. Check Prometheus alerts — which one is firing?
-3. Check Langfuse — are traces arriving? Are they failing?
-4. Check Docker logs — `docker compose logs --tail=200 api`.
-5. Consult the table below.
+## 1. Incident Triage Hierarchy
 
-## Common incidents
+When alerted by Prometheus, PagerDuty, or user reports, execute triage in order:
 
-### High latency (p95 > 5s)
+```mermaid
+graph TD
+    Alert[Incoming Alert / Anomaly] --> HealthCheck{1. Check /health/ready}
+    HealthCheck -- Fails (503) --> Component[Identify Degraded Subsystem: DB, Redis, or LLM]
+    HealthCheck -- Passes (200) --> TraceInspection{2. Inspect Traces & Metrics}
+    TraceInspection --> Prometheus[Query Prometheus for Alert Signature]
+    TraceInspection --> Langfuse[Filter Errored Spans in Langfuse]
+    Prometheus --> ActionPlan[Execute Targeted Runbook Playbook below]
+```
 
-**Symptom**: Prometheus alert `RAGQueryLatencyHigh`.
+### Fast Triage Checklist
+1. **Liveness & Readiness**:
+   ```bash
+   curl -s http://localhost:8000/health/ready | jq .
+   ```
+2. **Container Status & Metrics**:
+   ```bash
+   docker compose ps
+   docker stats --no-stream
+   ```
+3. **Application Logs**:
+   ```bash
+   docker compose logs --tail=200 -f api
+   ```
+4. **Prometheus Alerting State**: Inspect Prometheus at `http://localhost:9090/alerts`.
 
-**Possible causes**:
-1. Reranker is slow (CPU-bound) — check `rag_rerank_latency` metric.
-2. LLM provider is slow — check `rag_llm_latency` metric.
-3. Postgres is slow — check `pg_stat_activity` for long-running queries.
-4. Cold start — embedder/reranker model not loaded.
+---
 
-**Actions**:
-- If reranker: scale horizontally (more API replicas), or move reranker to a separate worker, or reduce `candidate_count` in config.
-- If LLM: check provider status page; consider switching provider via config.
-- If Postgres: check for missing indexes, long-running queries, lock contention.
-- If cold start: warm up models at app startup (TODO in `main.py`).
+## 2. Alert Playbooks
 
-### High failure rate
+### 2.1. `RAGQueryLatencyHigh` (p95 > 5.0s over 5m)
 
-**Symptom**: Prometheus alert `RAGFailureRateHigh`.
+**Metric Trigger**: `histogram_quantile(0.95, sum(rate(rag_query_latency_seconds_bucket[5m])) by (le)) > 5.0`
 
-**Actions**:
-1. Check which failure type is dominant: `rag_failure_total{failure_type="..."}`.
-2. Consult the failure-specific section below.
+**Root Cause Investigation**:
+1. **Reranker CPU Contention**:
+   - Check reranker inference latency: `rag_rerank_latency_seconds`.
+   - Inspect CPU saturation on API containers (`docker stats rag-api`). If CPU > 90%, PyTorch BGE-reranker inference is bottlenecked on vCPU cores.
+   - *Action*: Scale API worker replicas:
+     ```bash
+     docker compose up -d --scale api=3
+     ```
+   - Alternatively, temporarily reduce candidate rerank pool from 50 to 25 in `configs/prod/config.yaml` (`reranking.top_k_candidates: 25`).
+2. **Upstream LLM Provider Degradation**:
+   - Check `rag_llm_latency_seconds`. If latency is > 3.5s, the third-party LLM API (OpenAI / Anthropic) is degraded.
+   - *Action*: Switch active provider fallback or toggle to a faster model tier (e.g. `gpt-4o-mini`) via environment configuration without code deploy.
+3. **PostgreSQL Execution Bottlenecks**:
+   - Query active connections and lock contention:
+     ```sql
+     SELECT pid, now() - query_start AS duration, query, state 
+     FROM pg_stat_activity 
+     WHERE state != 'idle' AND now() - query_start > interval '2 seconds';
+     ```
+   - If vector search is sequential, rebuild or analyze HNSW graph:
+     ```sql
+     REINDEX INDEX idx_document_chunks_embedding_hnsw;
+     ANALYZE document_chunks;
+     ```
+4. **Cold Start Penalty**:
+   - Ensure embedder and reranker models are fully loaded during startup lifecycle rather than JIT on first user request. Run:
+     ```bash
+     python scripts/warmup_models.py
+     ```
 
-### NO_DOCUMENTS spike
+---
 
-**Symptom**: Many queries returning "I couldn't find any documents matching your question."
+### 2.2. `RAGFailureRateHigh` (Error Rate > 5% over 5m)
 
-**Actions**:
-1. Check if ingestion is up to date: `SELECT count(*) FROM documents WHERE deleted_at IS NULL;`
-2. Check if chunks exist: `SELECT count(*) FROM document_chunks;`
-3. If chunks missing: re-run ingestion.
-4. If chunks present: check if access policy is too restrictive.
+**Metric Trigger**: `sum(rate(rag_failure_total[5m])) / sum(rate(rag_query_total[5m])) > 0.05`
 
-### INSUFFICIENT_EVIDENCE spike
+**Triage by Failure Type**:
+Query Prometheus: `sum by (failure_type) (rate(rag_failure_total[5m]))`
 
-**Symptom**: Many queries returning "I don't have enough evidence to answer this confidently."
+| Failure Code | Root Cause Diagnosis | Immediate Action |
+| :--- | :--- | :--- |
+| `NO_DOCUMENTS` | Empty retrieval results due to restrictive RBAC or missing ingest. | Verify chunk count in DB (`SELECT count(*) FROM document_chunks;`). Check user's JWT project claims. |
+| `INSUFFICIENT_EVIDENCE` | Retrieved chunks fail similarity or confidence threshold in `EvidenceValidator`. | Inspect failing queries in Langfuse. Increase `retrieval.initial_candidates` from 50 to 100 or adjust similarity threshold. |
+| `LLM_TIMEOUT` | LLM provider exceeded 30s deadline or circuit breaker tripped. | Verify provider API status. Ensure exponential backoff retries (`src/core/retries.py`) are healthy. |
+| `AGENT_LOOP` | Multi-hop reasoning loop detected consecutive identical tool calls. | Inspect failing trace IDs in Langfuse. The planner is receiving ambiguous evidence. Adjust planner system prompt in `prompts/v1/planning.md`. |
+| `HALLUCINATION_DETECTED` | Generation output failed citation validation check against evidence chunks. | Cross-reference generator output and chunk IDs. Check if citation validator LLM threshold is excessively strict. |
 
-**Actions**:
-1. Check if the corpus covers the topics being asked about.
-2. Check if chunking strategy is appropriate (try `structure-aware` instead of `fixed`).
-3. Check if `candidate_count` is too low (try increasing to 100).
-4. Sample a few failing queries and inspect the retrieved chunks in Langfuse.
+---
 
-### LLM_TIMEOUT spike
+### 2.3. PostgreSQL Service Failure
 
-**Symptom**: Many queries failing with "The model is taking too long."
+**Symptom**: `/health/ready` returns `{"database": "unhealthy"}`, HTTP 503 errors on query ingestion.
 
-**Actions**:
-1. Check provider status page (OpenAI / Anthropic).
-2. Check network connectivity from API container.
-3. Consider switching to a faster model temporarily (gpt-4o-mini instead of gpt-4o).
-4. If persistent, scale API replicas to absorb the slower responses.
+**Playbook**:
+1. Check container lifecycle:
+   ```bash
+   docker compose ps postgres
+   docker compose logs --tail=100 postgres
+   ```
+2. Check host storage capacity:
+   ```bash
+   docker compose exec postgres df -h /var/lib/postgresql/data
+   ```
+   *If disk is 100% full*: Vacuum dead tuples or expand volume.
+3. Test connection manually:
+   ```bash
+   docker compose exec postgres pg_isready -U rag -d rag
+   ```
+4. Restart container:
+   ```bash
+   docker compose restart postgres
+   ```
+5. If table corruption occurs, initiate disaster recovery restore from latest WAL/pg_dump backup (see [`docs/operations/backup-restore.md`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/docs/operations/backup-restore.md)).
 
-### AGENT_LOOP spike
+---
 
-**Symptom**: Many queries failing with "I'm having trouble reasoning through this."
+### 2.4. Redis Cache Outage
 
-**Actions**:
-1. Sample failing traces in Langfuse.
-2. Identify which tool is being called repeatedly.
-3. The loop detector is firing — investigate WHY the LLM keeps calling the same tool.
-4. Likely cause: ambiguous planner prompt. Update `prompts/v1/planning.md` and add a regression test.
+**Symptom**: Redis connection timeouts logged; embedding cache misses spike to 100%.
 
-### HALLUCINATION_DETECTED spike
+**Playbook**:
+1. **Graceful Fallback**: The platform is architected with a non-blocking cache layer — if Redis is down, queries continue to execute directly against pgvector (with a slight ~50ms latency increase).
+2. Check Redis container health:
+   ```bash
+   docker compose exec redis redis-cli ping
+   ```
+3. Restart Redis service:
+   ```bash
+   docker compose restart redis
+   ```
+4. Flush corrupted keyspace if OOM:
+   ```bash
+   docker compose exec redis redis-cli flushdb async
+   ```
 
-**Symptom**: Many queries failing with "I generated an answer I cannot verify."
+---
 
-**Actions**:
-1. Sample failing traces in Langfuse.
-2. Check if the citation validator LLM-judge is being too strict.
-3. Check if the generator is producing claims not supported by evidence — likely a prompt regression.
-4. If the validator is broken, temporarily lower the threshold in config.
+### 2.5. Langfuse & OpenTelemetry Collector Outage
 
-### Postgres down
+**Symptom**: Trace export warnings in API container logs; Langfuse UI unreachable.
 
-**Symptom**: `/health/ready` returns `db: fail`.
+**Playbook**:
+1. **Non-Blocking Telemetry**: The OpenTelemetry OTLP batch processor buffers spans in memory and drops them gracefully if endpoint is unreachable. Client queries are **never** blocked.
+2. Check Langfuse service:
+   ```bash
+   docker compose ps langfuse
+   docker compose restart langfuse
+   ```
+3. Verify OTLP ingestion port 3000 is open.
 
-**Actions**:
-1. Check `docker compose ps postgres` — is the container running?
-2. Check `docker compose logs postgres` — any error messages?
-3. If disk full: `docker compose exec postgres df -h` and clean up.
-4. If corrupted: restore from last night's backup (see `docs/operations/backup-restore.md`).
-5. If you're on managed Postgres (RDS): check the AWS/GCP console.
+---
 
-### Redis down
+## 3. Escalation Matrix & Severity Levels
 
-**Symptom**: Caching layer unavailable.
+| Severity Level | Criteria | Response SLA | Action Protocol |
+| :--- | :--- | :--- | :--- |
+| **P0 (Critical)** | Service completely unreachable; >50% queries failing; data loss risk. | < 15 minutes | Page on-call engineer; initiate incident war room; post status update. |
+| **P1 (Degraded)** | High latency (p95 > 5s); single provider failing; elevated 5xx errors (5-20%). | < 1 hour | Notify engineering team in `#eng-incidents`; triage via Prometheus & Langfuse. |
+| **P2 (Minor)** | Non-blocking observability failure (Langfuse down); isolated user query edge cases. | Next business day | File GitHub Issue with trace ID and reproduction steps. |
 
-**Actions**:
-1. The app should continue to work (cache is optional) but slower.
-2. Restart Redis: `docker compose restart redis`.
-3. If data corruption: `docker compose down redis && docker volume rm agentic-rag_redis_data && docker compose up -d redis`.
+---
 
-### Langfuse down
+## 4. Post-Incident Review Protocol
 
-**Symptom**: Traces not appearing in Langfuse UI.
+For all P0 and P1 incidents:
+1. Preserve forensic logs and Prometheus graphs for the incident window.
+2. Complete a blameless post-mortem document following template: `docs/operations/post-mortems/YYYY-MM-DD-incident-title.md`.
+3. Track corrective action items in the project backlog (code fixes, architectural changes, or new automated tests).
 
-**Actions**:
-1. The app should continue to work (tracing is non-blocking).
-2. Check `docker compose ps langfuse` and `docker compose logs langfuse`.
-3. If Langfuse Postgres is full: clean up old traces.
-
-## Escalation
-
-- **P0 (system down)**: page on-call engineer.
-- **P1 (degraded)**: notify team in Slack, investigate within 1 hour.
-- **P2 (single query failure)**: file a GitHub issue, investigate next business day.
-
-## Post-incident
-
-After every P0/P1:
-1. Write a post-mortem in `docs/operations/post-mortems/YYYY-MM-DD-<incident>.md`.
-2. Add monitoring/alerts that would have caught it earlier.
-3. Add a regression test if applicable.
