@@ -21,7 +21,7 @@ In production RAG systems, empirical evaluation separates engineering from intui
 
 ## 2. Mathematical Formulations of Retrieval Metrics
 
-Implemented in [`src/evaluation/retrieval_metrics.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/evaluation/retrieval_metrics.py):
+Implemented in [`src/evaluation/retrieval_metrics.py`](../../src/evaluation/retrieval_metrics.py):
 
 ### 2.1 Recall@K
 Measures the proportion of all ground-truth relevant chunks that appear within the top $K$ retrieved candidates:
@@ -46,7 +46,7 @@ Where $\text{IDCG@K}$ is the ideal maximum possible DCG score where all relevant
 
 ## 3. Generation Metrics and LLM-as-a-Judge
 
-Implemented in [`src/evaluation/generation_metrics.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/evaluation/generation_metrics.py):
+Implemented in [`src/evaluation/generation_metrics.py`](../../src/evaluation/generation_metrics.py):
 
 | Metric | Evaluation Method | Target Threshold | Description |
 | :--- | :--- | :--- | :--- |
@@ -60,7 +60,7 @@ Implemented in [`src/evaluation/generation_metrics.py`](file:///c:/Users/Adil/Do
 
 ## 4. The 50-Item Golden Evaluation Dataset
 
-The platform benchmarks retrieval and generation using [`evals/datasets/golden.jsonl`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/evals/datasets/golden.jsonl), spanning 10 distinct operational categories:
+The platform benchmarks retrieval and generation using [`evals/datasets/golden.jsonl`](../../evals/datasets/golden.jsonl), spanning 10 distinct operational categories:
 
 1. **`simple_factual`**: Single-hop lookups with verbatim answers in corporate policies.
 2. **`semantic`**: Conceptual queries with zero lexical overlap with target documents.
@@ -90,7 +90,7 @@ Pull Request Created
         └──► Faithfulness < 0.85  ──► CI Status: FAIL (Build Blocked)
 ```
 
-Nightly evaluations execute the full 50-item dataset across all 6 baselines via [`.github/workflows/eval.yml`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/.github/workflows/eval.yml), recording telemetry to Langfuse and storing comparative Markdown artifacts.
+Nightly evaluations execute the full 50-item dataset across all 6 baselines via [`.github/workflows/eval.yml`](../../.github/workflows/eval.yml), recording telemetry to Langfuse and storing comparative Markdown artifacts.
 
 ---
 
