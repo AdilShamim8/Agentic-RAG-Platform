@@ -1,11 +1,12 @@
 """memory_search tool — search the user's long-term memory."""
+
 from __future__ import annotations
 
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.agents.tools.registry import register_tool, ToolResult
+from src.agents.tools.registry import ToolResult, register_tool
 from src.memory.retrieval import search_memories
 
 
@@ -23,9 +24,12 @@ async def memory_search(
     top_k: int | None,
 ) -> ToolResult:
     """Retrieve the user's persistent memories relevant to sub_question."""
-    memories = await search_memories(query=sub_question, user_id=user.id, session=session, top_k=top_k or 5)
+    memories = await search_memories(
+        query=sub_question, user_id=user.id, session=session, top_k=top_k or 5
+    )
     # Convert memories to ScoredChunk-like objects so the rest of the pipeline can use them uniformly
     from src.retrieval.types import ScoredChunk
+
     chunks = [
         ScoredChunk(
             chunk_id=f"memory-{m.id}",
@@ -33,8 +37,12 @@ async def memory_search(
             document_title="User memory",
             content=m.content,
             score=m.confidence,
-            page=None, section=None, url=None,
-            version=1, effective_from=None, effective_to=None,
+            page=None,
+            section=None,
+            url=None,
+            version=1,
+            effective_from=None,
+            effective_to=None,
         )
         for m in memories
     ]

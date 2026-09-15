@@ -1,4 +1,5 @@
 """Cost tracking — computes and records per-request cost."""
+
 from __future__ import annotations
 
 from src.llm.provider import compute_cost

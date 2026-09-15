@@ -1,4 +1,5 @@
 """Conversations endpoints."""
+
 from __future__ import annotations
 
 from typing import Annotated
@@ -52,7 +53,9 @@ async def get_convo(
     user: Annotated[AuthUser, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ConversationDetail:
-    convo = await get_conversation(conversation_id=conversation_id, user_id=user.id, session=session)
+    convo = await get_conversation(
+        conversation_id=conversation_id, user_id=user.id, session=session
+    )
     if convo is None:
         raise HTTPException(404, "Conversation not found")
     return convo

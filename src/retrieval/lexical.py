@@ -1,4 +1,5 @@
 """Lexical retrieval — Postgres FTS with ts_rank_cd scoring."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -33,16 +34,19 @@ async def lexical_retrieve(
         ORDER BY score DESC
         LIMIT :k
     """)
-    result = await session.execute(sql, {
-        "q": query,
-        "k": top_k,
-        "user_role": user.role_slug,
-        "user_projects": list(user.projects),
-        "user_id": user.id,
-        "department": filters.get("department"),
-        "doc_type": filters.get("doc_type"),
-    })
-    rows = result.mappings().all()
+    result = await session.execute(
+        sql,
+        {
+            "q": query,
+            "k": top_k,
+            "user_role": user.role_slug,
+            "user_projects": list(user.projects),
+            "user_id": user.id,
+            "department": filters.get("department"),
+            "doc_type": filters.get("doc_type"),
+        },
+    )
+    rows = [dict(r) for r in result.mappings().all()]
 
     # Normalize scores to 0..1
     max_score = max((float(r["score"]) for r in rows), default=1.0)
@@ -53,7 +57,7 @@ async def lexical_retrieve(
     return [_row_to_chunk(r) for r in rows]
 
 
-def _row_to_chunk(r: dict) -> ScoredChunk:
+def _row_to_chunk(r: Any) -> ScoredChunk:
     return ScoredChunk(
         chunk_id=str(r["id"]),
         document_id=str(r["document_id"]),

@@ -1,4 +1,5 @@
 """Generator — produces a grounded answer with inline citation markers."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -30,7 +31,9 @@ ANSWER:
 """
 
 
-async def generate_answer(query: str, chunks: list[ScoredChunk], llm: LLMProvider) -> GenerationResult:
+async def generate_answer(
+    query: str, chunks: list[ScoredChunk], llm: LLMProvider
+) -> GenerationResult:
     """Generate an answer with [N] citation markers."""
     if not chunks:
         return GenerationResult(

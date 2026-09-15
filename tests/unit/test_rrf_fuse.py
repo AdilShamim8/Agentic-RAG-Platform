@@ -1,4 +1,5 @@
 """Unit tests for RRF (Reciprocal Rank Fusion)."""
+
 from __future__ import annotations
 
 from src.retrieval.hybrid import rrf_fuse
@@ -7,8 +8,11 @@ from src.retrieval.types import ScoredChunk
 
 def _make(chunk_id: str, score: float) -> ScoredChunk:
     return ScoredChunk(
-        chunk_id=chunk_id, document_id="doc", document_title="t",
-        content="c", score=score,
+        chunk_id=chunk_id,
+        document_id="doc",
+        document_title="t",
+        content="c",
+        score=score,
     )
 
 

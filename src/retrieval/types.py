@@ -1,4 +1,5 @@
 """Retrieval types — shared dataclasses for retrieval results."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -8,6 +9,7 @@ from datetime import date
 @dataclass(slots=True)
 class ScoredChunk:
     """A retrieved chunk with a relevance score and full metadata."""
+
     chunk_id: str
     document_id: str
     document_title: str
@@ -29,4 +31,4 @@ class RetrievalConfig:
     candidate_count: int = 50
     similarity_threshold: float = 0.2
     reranker_top_k: int = 5
-    filters: dict = None
+    filters: dict | None = None

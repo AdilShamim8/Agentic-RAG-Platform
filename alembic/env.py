@@ -9,6 +9,13 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+import sys
+from pathlib import Path
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
 from apps.api.app.core.config import settings
 from apps.api.app.core.db import Base
 import apps.api.app.models  # noqa: F401  # ensures all models are loaded

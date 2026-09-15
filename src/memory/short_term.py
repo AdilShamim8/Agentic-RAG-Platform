@@ -1,11 +1,12 @@
 """Short-term memory — last N messages of the conversation."""
+
 from __future__ import annotations
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apps.api.app.models.conversation import Message
 from apps.api.app.core.config import settings
+from apps.api.app.models.conversation import Message
 
 
 async def load_short_term(*, conversation_id: str, session: AsyncSession) -> list[Message]:

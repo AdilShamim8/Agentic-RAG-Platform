@@ -9,20 +9,20 @@ Strategies:
 All strategies apply RBAC filtering via the access_matches() SQL function
 BEFORE the vector / FTS search. See src/security/access.py.
 """
+
 from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.observability.tracing import traced_operation
-from src.retrieval.dense import dense_retrieve
-from src.retrieval.lexical import lexical_retrieve
-from src.retrieval.hybrid import rrf_fuse
-from src.retrieval.freshness import apply_freshness_boost
-from src.reranking.cross_encoder import rerank
 from src.reranking.base import get_reranker
+from src.reranking.cross_encoder import rerank
+from src.retrieval.dense import dense_retrieve
+from src.retrieval.freshness import apply_freshness_boost
+from src.retrieval.hybrid import rrf_fuse
+from src.retrieval.lexical import lexical_retrieve
 from src.retrieval.types import ScoredChunk
 
 
@@ -45,26 +45,50 @@ async def retrieve(
     ):
         if strategy == "dense":
             chunks = await dense_retrieve(
-                query=query, user=user, session=session, top_k=top_k, filters=filters,
+                query=query,
+                user=user,
+                session=session,
+                top_k=top_k,
+                filters=filters,
             )
         elif strategy == "lexical":
             chunks = await lexical_retrieve(
-                query=query, user=user, session=session, top_k=top_k, filters=filters,
+                query=query,
+                user=user,
+                session=session,
+                top_k=top_k,
+                filters=filters,
             )
         elif strategy == "hybrid":
             dense = await dense_retrieve(
-                query=query, user=user, session=session, top_k=candidate_count, filters=filters,
+                query=query,
+                user=user,
+                session=session,
+                top_k=candidate_count,
+                filters=filters,
             )
             lexical = await lexical_retrieve(
-                query=query, user=user, session=session, top_k=candidate_count, filters=filters,
+                query=query,
+                user=user,
+                session=session,
+                top_k=candidate_count,
+                filters=filters,
             )
             chunks = rrf_fuse(dense, lexical, top_n=top_k)
         elif strategy == "hybrid_reranked":
             dense = await dense_retrieve(
-                query=query, user=user, session=session, top_k=candidate_count, filters=filters,
+                query=query,
+                user=user,
+                session=session,
+                top_k=candidate_count,
+                filters=filters,
             )
             lexical = await lexical_retrieve(
-                query=query, user=user, session=session, top_k=candidate_count, filters=filters,
+                query=query,
+                user=user,
+                session=session,
+                top_k=candidate_count,
+                filters=filters,
             )
             fused = rrf_fuse(dense, lexical, top_n=candidate_count)
             chunks = await rerank(get_reranker(), query=query, candidates=fused, top_k=top_k)

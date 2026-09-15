@@ -1,4 +1,5 @@
 """Cleaning — normalize text, remove boilerplate."""
+
 from __future__ import annotations
 
 import re
@@ -15,7 +16,7 @@ def clean(text: str) -> str:
 
     # Replace common PDF artifacts
     text = text.replace("\u00ad", "")  # soft hyphen
-    text = re.sub(r"-\n", "", text)     # join hyphenated line breaks
+    text = re.sub(r"-\n", "", text)  # join hyphenated line breaks
     text = re.sub(r"\r\n", "\n", text)
     text = re.sub(r"\r", "\n", text)
 

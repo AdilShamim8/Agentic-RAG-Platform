@@ -1,7 +1,9 @@
 """Cross-encoder reranker using BGE-reranker-v2-m3."""
+
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 
 from src.retrieval.types import ScoredChunk
 
@@ -11,6 +13,7 @@ class BGECrossEncoderReranker:
 
     def __init__(self, model_name: str = "BAAI/bge-reranker-v2-m3") -> None:
         from FlagEmbedding import FlagLLMModel
+
         self._model = FlagLLMModel(model_name, use_fp16=True)
 
     async def rerank(
@@ -35,6 +38,8 @@ class BGECrossEncoderReranker:
         return result
 
 
-async def rerank(reranker: BGECrossEncoderReranker, *, query: str, candidates: list[ScoredChunk], top_k: int) -> list[ScoredChunk]:
+async def rerank(
+    reranker: Any, *, query: str, candidates: list[ScoredChunk], top_k: int
+) -> list[ScoredChunk]:
     """Convenience function."""
     return await reranker.rerank(query, candidates, top_k)

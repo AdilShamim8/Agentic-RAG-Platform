@@ -1,12 +1,12 @@
 """get_document_versions tool — list versions of a document."""
+
 from __future__ import annotations
 
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.agents.tools.registry import register_tool, ToolResult
-from src.retrieval.types import ScoredChunk
+from src.agents.tools.registry import ToolResult, register_tool
 
 
 @register_tool(
@@ -29,4 +29,6 @@ async def get_document_versions(
 ) -> ToolResult:
     """Return the version list as a synthetic chunk the LLM can read."""
     # TODO: query document_versions table
-    return ToolResult(chunks=[], cost_usd=0.0, metadata={"document_id": document_id, "versions": []})
+    return ToolResult(
+        chunks=[], cost_usd=0.0, metadata={"document_id": document_id, "versions": []}
+    )

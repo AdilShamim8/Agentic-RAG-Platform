@@ -1,4 +1,5 @@
 """Regression tests — golden dataset quality gate."""
+
 from __future__ import annotations
 
 import pytest

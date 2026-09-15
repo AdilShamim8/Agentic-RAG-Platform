@@ -1,8 +1,9 @@
 """Integration test for the /query endpoint."""
+
 from __future__ import annotations
 
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 
 from apps.api.app.main import app
 
@@ -12,7 +13,9 @@ from apps.api.app.main import app
 async def test_query_endpoint_returns_200():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         # Login first
-        login = await client.post("/auth/login", data={"username": "alice@demo.dev", "password": "password123"})
+        login = await client.post(
+            "/auth/login", data={"username": "alice@demo.dev", "password": "password123"}
+        )
         assert login.status_code == 200
         token = login.json()["access_token"]
 

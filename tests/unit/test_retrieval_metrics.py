@@ -1,8 +1,12 @@
 """Unit tests for retrieval metrics (Recall@K, Precision@K, MRR, nDCG)."""
+
 from __future__ import annotations
 
 from src.evaluation.retrieval_metrics import (
-    recall_at_k, precision_at_k, mrr, ndcg_at_k,
+    mrr,
+    ndcg_at_k,
+    precision_at_k,
+    recall_at_k,
 )
 
 

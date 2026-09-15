@@ -1,9 +1,9 @@
 """Evidence sufficiency checker."""
+
 from __future__ import annotations
 
 from src.llm.provider import LLMProvider
 from src.retrieval.types import ScoredChunk
-
 
 SUFFICIENCY_PROMPT = """You are an evidence sufficiency judge.
 
@@ -24,7 +24,9 @@ JUDGE:
 """
 
 
-async def check_evidence_sufficiency(query: str, chunks: list[ScoredChunk], llm: LLMProvider) -> bool:
+async def check_evidence_sufficiency(
+    query: str, chunks: list[ScoredChunk], llm: LLMProvider
+) -> bool:
     """Return True if the evidence is sufficient to answer the query."""
     if not chunks:
         return False

@@ -1,7 +1,8 @@
 """Prometheus metrics — latency, cost, failures, retrieval counts."""
+
 from __future__ import annotations
 
-from prometheus_client import Counter, Histogram, Gauge, make_asgi_app
+from prometheus_client import Counter, Gauge, Histogram, make_asgi_app
 
 # Metrics (module-level singletons)
 RAG_QUERY_TOTAL = Counter(

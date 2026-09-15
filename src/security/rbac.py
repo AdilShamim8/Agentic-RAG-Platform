@@ -3,6 +3,7 @@
 Roles: student, employee, manager, professor, administrator
 Permissions: read:document, write:document, ingest, eval, admin
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

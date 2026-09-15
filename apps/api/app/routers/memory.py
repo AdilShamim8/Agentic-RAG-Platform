@@ -1,4 +1,5 @@
 """Memory endpoints — list, edit, delete, export."""
+
 from __future__ import annotations
 
 from typing import Annotated
@@ -49,7 +50,9 @@ async def update_user_memory(
     user: Annotated[AuthUser, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> MemoryOut:
-    memory = await update_memory(memory_id=memory_id, user_id=user.id, content=body.content, session=session)
+    memory = await update_memory(
+        memory_id=memory_id, user_id=user.id, content=body.content, session=session
+    )
     if memory is None:
         raise HTTPException(404, "Memory not found")
     return memory

@@ -3,6 +3,7 @@
 RRF is preferred over score-based fusion because dense cosine scores and lexical
 BM25/TS scores are on incomparable scales. RRF only uses ranks, not scores.
 """
+
 from __future__ import annotations
 
 from src.retrieval.types import ScoredChunk

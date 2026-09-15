@@ -1,4 +1,5 @@
 """Metadata extraction — pulls structured metadata from raw + parsed documents."""
+
 from __future__ import annotations
 
 import hashlib
@@ -39,7 +40,9 @@ def extract_title(parsed, raw) -> str:
     return "Untitled"
 
 
-def extract_metadata(*, parsed, raw, department: str = "general", access_policy: dict | None = None) -> DocumentMetadata:
+def extract_metadata(
+    *, parsed, raw, department: str = "general", access_policy: dict | None = None
+) -> DocumentMetadata:
     """Extract structured metadata from a parsed document."""
     title = extract_title(parsed, raw)
     return DocumentMetadata(

@@ -1,4 +1,5 @@
 """Reranker base — provider abstraction."""
+
 from __future__ import annotations
 
 from typing import Protocol
@@ -18,7 +19,8 @@ _reranker: Reranker | None = None
 def get_reranker() -> Reranker:
     global _reranker
     if _reranker is None:
-        from src.reranking.cross_encoder import BGECrossEncoderReranker
         from apps.api.app.core.config import settings
+        from src.reranking.cross_encoder import BGECrossEncoderReranker
+
         _reranker = BGECrossEncoderReranker(model_name=settings.reranker_model)
     return _reranker

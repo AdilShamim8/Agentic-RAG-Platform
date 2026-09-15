@@ -1,11 +1,12 @@
 """search_documents tool — the primary retrieval tool."""
+
 from __future__ import annotations
 
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.agents.tools.registry import register_tool, ToolResult
+from src.agents.tools.registry import ToolResult, register_tool
 from src.retrieval.engine import retrieve
 
 

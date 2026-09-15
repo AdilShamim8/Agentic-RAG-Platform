@@ -1,8 +1,8 @@
 """Application configuration loaded from environment variables."""
+
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import List
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -89,7 +89,7 @@ class Settings(BaseSettings):
     eval_smoke_size: int = 10
 
     @property
-    def cors_origins_list(self) -> List[str]:
+    def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
     @field_validator("app_env")

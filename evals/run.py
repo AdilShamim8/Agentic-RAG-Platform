@@ -3,15 +3,14 @@
 Loads a golden dataset, runs each query through the configured baseline,
 collects metrics, and writes a report.
 """
+
 from __future__ import annotations
 
-import argparse
 import asyncio
 import json
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 
 import typer
 
@@ -89,7 +88,7 @@ async def run_experiment(config: ExperimentConfig) -> dict:
     report = {
         "experiment": config.name,
         "dataset": config.dataset,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "total_queries": len(all_results),
         "baselines": config.baselines,
         "results": [asdict(r) for r in all_results],
@@ -112,7 +111,14 @@ def main(
 ) -> None:
     """Run evaluation."""
     if baselines == "all":
-        baseline_list = ["baseline_1_naive", "baseline_2_dense", "baseline_3_lexical", "baseline_4_hybrid", "baseline_5_hybrid_reranked", "baseline_6_agentic"]
+        baseline_list = [
+            "baseline_1_naive",
+            "baseline_2_dense",
+            "baseline_3_lexical",
+            "baseline_4_hybrid",
+            "baseline_5_hybrid_reranked",
+            "baseline_6_agentic",
+        ]
     else:
         baseline_list = [b.strip() for b in baselines.split(",")]
 

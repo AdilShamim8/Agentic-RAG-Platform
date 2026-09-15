@@ -1,4 +1,5 @@
 """Conversation service."""
+
 from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession

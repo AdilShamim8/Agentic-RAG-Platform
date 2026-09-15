@@ -9,24 +9,22 @@ Run-loop:
 This is a custom state machine, NOT LangGraph. The reasons are documented in
 docs/decisions/ADR-004-agent-orchestration.md.
 """
+
 from __future__ import annotations
 
 import asyncio
-import time
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.app.deps.auth import AuthUser
-from src.agents.classifier import classify_query, QueryClass
-from src.agents.planner import plan, Plan
-from src.agents.state import AgentState, AgentStateName
-from src.agents.generator import generate_answer
-from src.agents.evidence_validator import check_evidence_sufficiency
 from src.agents.citation_validator import validate_citations
-from src.agents.failure_handler import handle_failure
+from src.agents.classifier import QueryClass, classify_query
+from src.agents.evidence_validator import check_evidence_sufficiency
+from src.agents.generator import generate_answer
+from src.agents.planner import Plan, plan
+from src.agents.state import AgentState, AgentStateName
 from src.agents.tools.registry import execute_tool
-from src.citations.types import CitationResult
 from src.core.failures import Failure
 from src.llm.provider import get_llm_provider
 from src.observability.tracing import traced_operation
@@ -55,8 +53,6 @@ async def run_agent(
         conversation_id=conversation_id or "",
         trace_id=trace_id,
     )
-
-    start = time.perf_counter()
 
     try:
         async with asyncio.timeout(state.global_timeout_s):

@@ -1,4 +1,5 @@
 """Indexer — inserts chunks with embeddings + FTS vectors into Postgres."""
+
 from __future__ import annotations
 
 import uuid
@@ -52,8 +53,11 @@ async def index_chunks(
 
     # Update tsv column with explicit SQL
     from sqlalchemy import text
+
     await session.execute(
-        text("UPDATE document_chunks SET tsv = to_tsvector('english', content) WHERE document_id = :doc_id"),
+        text(
+            "UPDATE document_chunks SET tsv = to_tsvector('english', content) WHERE document_id = :doc_id"
+        ),
         {"doc_id": document.id},
     )
 

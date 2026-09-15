@@ -1,14 +1,17 @@
 """Fetcher protocol + implementations (local, web, github)."""
+
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import AsyncIterator, Protocol
+from typing import Protocol
 
 
 @dataclass
 class RawDocument:
     """A raw document from a source, before parsing."""
+
     source: str
     path_or_url: str
     content: bytes
@@ -51,6 +54,7 @@ class WebFetcher:
 
     async def fetch(self, source) -> AsyncIterator[RawDocument]:
         import httpx
+
         async with httpx.AsyncClient(follow_redirects=True, timeout=30) as client:
             response = await client.get(self.url)
             response.raise_for_status()

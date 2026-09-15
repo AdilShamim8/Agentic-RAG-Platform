@@ -1,10 +1,10 @@
 """Admin endpoints — system health, ingest status, traces."""
+
 from __future__ import annotations
 
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.app.core.db import get_session

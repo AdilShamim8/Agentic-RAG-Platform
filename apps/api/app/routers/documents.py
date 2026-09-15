@@ -1,4 +1,5 @@
 """Documents endpoints — ingest, list, get, delete, versions."""
+
 from __future__ import annotations
 
 from typing import Annotated

@@ -6,17 +6,18 @@ States:
        → GENERATION → CITATION_VALIDATION → (FAILED? → GENERATION again, max M times)
        → END
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from src.citations.types import CitationResult
 from src.core.failures import Failure
 
 
-class AgentStateName(str, Enum):
+class AgentStateName(StrEnum):
     START = "start"
     INTENT_CLASSIFICATION = "intent_classification"
     PLANNING = "planning"
@@ -33,6 +34,7 @@ class AgentStateName(str, Enum):
 @dataclass
 class AgentState:
     """Mutable state carried through the agent loop."""
+
     query: str
     user_id: str
     user_role: str
@@ -65,11 +67,7 @@ class AgentState:
         self.current_state = AgentStateName.FAILED if failure else AgentStateName.END
 
     def can_continue(self) -> bool:
-        if self.steps >= self.max_steps:
-            return False
-        if self.tool_calls >= self.max_tool_calls:
-            return False
-        return True
+        return self.steps < self.max_steps and self.tool_calls < self.max_tool_calls
 
     def record_tool_call(self, tool: str, args: dict) -> None:
         """Record a tool call and detect loops."""
@@ -90,5 +88,6 @@ def _hash_args(args: dict) -> str:
     """Stable hash of tool args for loop detection."""
     import hashlib
     import json
+
     canonical = json.dumps(args, sort_keys=True, default=str)
     return hashlib.sha256(canonical.encode()).hexdigest()[:16]

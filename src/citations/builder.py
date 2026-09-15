@@ -1,4 +1,5 @@
 """Citation builder — parses [N] markers from generated answers."""
+
 from __future__ import annotations
 
 import re

@@ -1,7 +1,7 @@
 """Versioning — content-hash based change detection."""
+
 from __future__ import annotations
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.app.models.document import Document, DocumentVersion
@@ -17,7 +17,13 @@ async def detect_change(
 
 
 async def create_version_record(
-    *, document_id, version: int, content_hash: str, change_summary: str | None, created_by, session: AsyncSession
+    *,
+    document_id,
+    version: int,
+    content_hash: str,
+    change_summary: str | None,
+    created_by,
+    session: AsyncSession,
 ) -> DocumentVersion:
     """Create a new version record and mark old versions as superseded."""
     # Mark existing latest version as superseded by the new one

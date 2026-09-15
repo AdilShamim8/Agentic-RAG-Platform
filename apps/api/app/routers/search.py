@@ -1,4 +1,5 @@
 """Search endpoint — raw retrieval without generation. Useful for evaluation and admin."""
+
 from __future__ import annotations
 
 from typing import Annotated

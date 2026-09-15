@@ -1,13 +1,12 @@
 """Citation validator — verifies that [N] markers map to chunks that support the claim."""
+
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
 
 from src.citations.types import CitationResult
 from src.llm.provider import LLMProvider
 from src.retrieval.types import ScoredChunk
-
 
 CITATION_VERIFIER_PROMPT = """You are a citation verifier.
 
@@ -23,7 +22,9 @@ CHUNKS:
 """
 
 
-async def validate_citations(answer: str, chunks: list[ScoredChunk], llm: LLMProvider) -> list[CitationResult]:
+async def validate_citations(
+    answer: str, chunks: list[ScoredChunk], llm: LLMProvider
+) -> list[CitationResult]:
     """Parse [N] markers from the answer, map to chunks, and verify each is supported."""
     # 1. Find all [N] markers in the answer
     markers = re.findall(r"\[(\d+)\]", answer)
@@ -54,7 +55,11 @@ async def validate_citations(answer: str, chunks: list[ScoredChunk], llm: LLMPro
 
     # 3. Verify each citation via LLM-judge
     unique_chunks = {c.chunk_id: c for c in chunks}
-    chunk_text = "\n\n".join(f"[chunk_id={cid}] {c.content[:300]}" for cid, c in unique_chunks.items() if c.chunk_id in {x.chunk_id for x in citations})
+    chunk_text = "\n\n".join(
+        f"[chunk_id={cid}] {c.content[:300]}"
+        for cid, c in unique_chunks.items()
+        if c.chunk_id in {x.chunk_id for x in citations}
+    )
 
     prompt = CITATION_VERIFIER_PROMPT.format(
         claims="\n".join(f"- {c.snippet[:200]}" for c in citations),

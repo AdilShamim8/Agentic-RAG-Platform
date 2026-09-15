@@ -1,7 +1,8 @@
 """System metrics — p50/p95/p99 latency, token usage, cost, failure rate."""
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -28,8 +29,15 @@ def percentile(values: list[float], p: float) -> float:
 
 
 def compute_system_metrics(
-    *, latencies_ms: list[float], tokens_in: list[int], tokens_out: list[int],
-    costs_usd: list[float], failures: int, total: int, tool_calls: list[int], retrievals: list[int],
+    *,
+    latencies_ms: list[float],
+    tokens_in: list[int],
+    tokens_out: list[int],
+    costs_usd: list[float],
+    failures: int,
+    total: int,
+    tool_calls: list[int],
+    retrievals: list[int],
 ) -> SystemMetrics:
     return SystemMetrics(
         p50_latency_ms=percentile(latencies_ms, 50),

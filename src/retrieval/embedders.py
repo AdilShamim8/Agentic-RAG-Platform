@@ -2,9 +2,9 @@
 
 Use a provider abstraction so the rest of the code is vendor-agnostic.
 """
+
 from __future__ import annotations
 
-import os
 from typing import Protocol
 
 from apps.api.app.core.config import settings
@@ -21,12 +21,14 @@ class _LocalBGEEmbedder:
 
     def __init__(self, model_name: str = "BAAI/bge-m3") -> None:
         from FlagEmbedding import BGEM3FlagModel
+
         self._model = BGEM3FlagModel(model_name, use_fp16=True)
         self.dim = 1024
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
         # BGE-m3 is sync; run in threadpool
         import asyncio
+
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(
             None,
@@ -40,6 +42,7 @@ class _OpenAIEmbedder:
 
     def __init__(self, model_name: str = "text-embedding-3-large") -> None:
         from openai import AsyncOpenAI
+
         self._client = AsyncOpenAI(api_key=settings.openai_api_key)
         self._model = model_name
         self.dim = 3072

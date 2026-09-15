@@ -1,4 +1,5 @@
 """Performance benchmark script — `python -m scripts.bench`."""
+
 from __future__ import annotations
 
 import asyncio
@@ -63,14 +64,16 @@ async def _bench(*, output: str, n: int) -> None:
             lines.append(f"| {k} | {v:.2f} |")
         lines.append("")
 
-    lines.extend([
-        "## Notes",
-        "",
-        "- All benchmarks run on a single machine.",
-        "- Replace the placeholder values above with real measurements from your environment.",
-        "- **Do not fabricate numbers.** If a benchmark was not run, write `Not measured yet.`",
-        "",
-    ])
+    lines.extend(
+        [
+            "## Notes",
+            "",
+            "- All benchmarks run on a single machine.",
+            "- Replace the placeholder values above with real measurements from your environment.",
+            "- **Do not fabricate numbers.** If a benchmark was not run, write `Not measured yet.`",
+            "",
+        ]
+    )
 
     out_path.write_text("\n".join(lines))
     print(f"\nBenchmark report written to {out_path}")

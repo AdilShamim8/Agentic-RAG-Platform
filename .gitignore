@@ -138,7 +138,8 @@ log/
 *.pth
 *.onnx
 *.safetensors
-models/
+/models/
+!apps/api/app/models/
 .cache/
 
 # -----------------------------------------------------------------------------

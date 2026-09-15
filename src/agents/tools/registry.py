@@ -1,8 +1,10 @@
 """Tool registry — tools the agent can call."""
+
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable
+from typing import Any
 
 from src.retrieval.types import ScoredChunk
 
@@ -16,7 +18,7 @@ class ToolResult:
 
 ToolFunc = Callable[..., Awaitable[ToolResult]]
 
-_REGISTRY: dict[str, "ToolDef"] = {}
+_REGISTRY: dict[str, ToolDef] = {}
 
 
 @dataclass
@@ -28,11 +30,17 @@ class ToolDef:
     permission: str | None = None  # required permission slug, None = any authenticated user
 
 
-def register_tool(*, name: str, description: str, schema: dict, permission: str | None = None) -> Callable[[ToolFunc], ToolFunc]:
+def register_tool(
+    *, name: str, description: str, schema: dict, permission: str | None = None
+) -> Callable[[ToolFunc], ToolFunc]:
     """Decorator to register a tool."""
+
     def decorator(func: ToolFunc) -> ToolFunc:
-        _REGISTRY[name] = ToolDef(name=name, description=description, schema=schema, func=func, permission=permission)
+        _REGISTRY[name] = ToolDef(
+            name=name, description=description, schema=schema, func=func, permission=permission
+        )
         return func
+
     return decorator
 
 
@@ -44,14 +52,25 @@ def get_tool(name: str) -> ToolDef | None:
     return _REGISTRY.get(name)
 
 
-async def execute_tool(*, tool_name: str, args: dict, sub_question: str, user: Any, session: Any, retrieval_strategy: str, top_k: int | None) -> ToolResult:
+async def execute_tool(
+    *,
+    tool_name: str,
+    args: dict,
+    sub_question: str,
+    user: Any,
+    session: Any,
+    retrieval_strategy: str,
+    top_k: int | None,
+) -> ToolResult:
     """Execute a tool by name. Validates args against schema and checks permissions."""
     tool = get_tool(tool_name)
     if tool is None:
         raise ValueError(f"Unknown tool: {tool_name}")
 
     # Permission check
-    if tool.permission is not None and tool.permission not in getattr(user, "permissions", frozenset()):
+    if tool.permission is not None and tool.permission not in getattr(
+        user, "permissions", frozenset()
+    ):
         raise PermissionError(f"User lacks required permission: {tool.permission}")
 
     # Schema validation

@@ -2,6 +2,7 @@
 
 Uses Ragas for faithfulness + custom LLM-judge metrics for citation correctness.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -11,12 +12,12 @@ from src.llm.provider import LLMProvider
 
 @dataclass
 class GenerationMetrics:
-    faithfulness: float          # all claims supported by evidence (0..1)
-    answer_correctness: float    # answer matches expected (0..1)
-    context_relevance: float     # retrieved context is relevant (0..1)
+    faithfulness: float  # all claims supported by evidence (0..1)
+    answer_correctness: float  # answer matches expected (0..1)
+    context_relevance: float  # retrieved context is relevant (0..1)
     citation_correctness: float  # every [N] marker maps to a supporting chunk (0..1)
-    citation_completeness: float # every supported claim has a citation (0..1)
-    hallucination_rate: float    # fraction of unsupported claims (0..1)
+    citation_completeness: float  # every supported claim has a citation (0..1)
+    hallucination_rate: float  # fraction of unsupported claims (0..1)
     abstention_correctness: float | None = None  # for negative queries
 
 
@@ -40,7 +41,9 @@ EVIDENCE:
 """
 
 
-async def citation_correctness(answer: str, evidence: list[str], llm: LLMProvider) -> tuple[float, list[str]]:
+async def citation_correctness(
+    answer: str, evidence: list[str], llm: LLMProvider
+) -> tuple[float, list[str]]:
     """LLM-judge: are all [N] markers supported by their cited chunk?"""
     prompt = CITATION_CORRECTNESS_PROMPT.format(
         answer=answer,
@@ -64,7 +67,9 @@ EVIDENCE:
 """
 
 
-async def hallucination_rate(answer: str, evidence: list[str], llm: LLMProvider) -> tuple[float, list[str]]:
+async def hallucination_rate(
+    answer: str, evidence: list[str], llm: LLMProvider
+) -> tuple[float, list[str]]:
     """Returns (rate, unsupported_claims)."""
     prompt = HALLUCINATION_PROMPT.format(
         answer=answer,

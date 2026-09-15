@@ -1,8 +1,9 @@
 """Audit logging — append-only log of privileged actions."""
+
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,7 +29,7 @@ async def log_action(
             target=target,
             metadata_=metadata or {},
             trace_id=trace_id,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
         session.add(entry)
         await session.flush()

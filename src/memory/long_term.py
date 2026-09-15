@@ -1,16 +1,16 @@
 """Long-term memory — persistent memories with extraction, conflict resolution, expiry."""
+
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select, and_
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apps.api.app.models.memory import Memory
 from apps.api.app.core.config import settings
+from apps.api.app.models.memory import Memory
 from src.llm.provider import LLMProvider, get_llm_provider
-
 
 MEMORY_EXTRACTION_PROMPT = """You are a memory extractor. Given a conversation turn (user question + assistant answer),
 decide what (if anything) should be persisted as long-term memory.
@@ -61,7 +61,7 @@ async def extract_memories(
     memories = []
     for m in response.get("memories", []):
         ttl_days = m.get("ttl_days")
-        expires_at = datetime.now(timezone.utc) + timedelta(days=ttl_days) if ttl_days else None
+        expires_at = datetime.now(UTC) + timedelta(days=ttl_days) if ttl_days else None
         memories.append(
             Memory(
                 id=uuid.uuid4(),
@@ -76,7 +76,9 @@ async def extract_memories(
     return memories
 
 
-async def detect_conflict(new_memory: Memory, existing: list[Memory], llm: LLMProvider) -> Memory | None:
+async def detect_conflict(
+    new_memory: Memory, existing: list[Memory], llm: LLMProvider
+) -> Memory | None:
     """Returns the existing memory that conflicts with `new_memory`, if any."""
     if not existing:
         return None

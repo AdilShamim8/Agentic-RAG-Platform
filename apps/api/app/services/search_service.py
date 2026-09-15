@@ -1,16 +1,16 @@
 """Search service — raw retrieval (no generation)."""
+
 from __future__ import annotations
 
 import time
 import uuid
-from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.app.deps.auth import AuthUser
 from apps.api.app.routers.search import ScoredChunk, SearchResponse
-from src.retrieval.engine import retrieve
 from src.observability.tracing import traced_operation
+from src.retrieval.engine import retrieve
 
 
 async def search_chunks(

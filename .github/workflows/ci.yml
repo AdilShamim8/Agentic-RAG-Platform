@@ -22,6 +22,14 @@ jobs:
 
   unit-tests:
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql+asyncpg://rag:rag@localhost:5432/rag
+      REDIS_URL: redis://localhost:6379/0
+      JWT_SECRET: test-secret-please-change-me-to-64-chars-aaaaaaaaaaaa
+      APP_SECRET_KEY: test-secret-please-change-me-to-64-chars-aaaaaaaaaaaa
+      OPENAI_API_KEY: sk-test
+      HF_TOKEN: hf_test
+      APP_ENV: dev
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -65,6 +73,8 @@ jobs:
       APP_SECRET_KEY: test-secret-please-change-me-to-64-chars-aaaaaaaaaaaa
       OPENAI_API_KEY: sk-test
       HF_TOKEN: hf_test
+      APP_ENV: dev
+      PYTHONPATH: .
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -86,6 +96,11 @@ jobs:
           POSTGRES_PASSWORD: rag
           POSTGRES_DB: rag
         ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U rag"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
       DATABASE_URL: postgresql+asyncpg://rag:rag@localhost:5432/rag
       REDIS_URL: redis://localhost:6379/0
@@ -93,6 +108,8 @@ jobs:
       APP_SECRET_KEY: test-secret-please-change-me-to-64-chars-aaaaaaaaaaaa
       OPENAI_API_KEY: sk-test
       HF_TOKEN: hf_test
+      APP_ENV: dev
+      PYTHONPATH: .
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -114,6 +131,11 @@ jobs:
           POSTGRES_PASSWORD: rag
           POSTGRES_DB: rag
         ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U rag"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
       DATABASE_URL: postgresql+asyncpg://rag:rag@localhost:5432/rag
       REDIS_URL: redis://localhost:6379/0
@@ -121,6 +143,8 @@ jobs:
       APP_SECRET_KEY: test-secret-please-change-me-to-64-chars-aaaaaaaaaaaa
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      APP_ENV: dev
+      PYTHONPATH: .
       EVAL_FAITHFULNESS_MIN: "0.85"
       EVAL_HALLUCINATION_RATE_MAX: "0.10"
     steps:
@@ -135,16 +159,23 @@ jobs:
       - run: make eval-smoke
       - name: Quality gate
         run: |
-          # Parse the smoke eval report and assert faithfulness >= threshold
           python -c "
-          import json, sys, os
-          # TODO: parse the actual report
-          faithfulness = 0.0  # placeholder
-          threshold = float(os.environ.get('EVAL_FAITHFULNESS_MIN', '0.85'))
-          if faithfulness < threshold:
-              print(f'FAIL: faithfulness {faithfulness} < {threshold}')
+          import glob, json, sys, os
+          report_files = sorted(glob.glob('evals/reports/*.json'))
+          if not report_files:
+              print('FAIL: No evaluation report generated.')
               sys.exit(1)
-          print(f'OK: faithfulness {faithfulness} >= {threshold}')
+          with open(report_files[-1]) as f:
+              data = json.load(f)
+          queries = data.get('total_queries', 0)
+          print(f'Smoke evaluation verified: {queries} queries processed in {report_files[-1]}')
+          faithfulness = data.get('summary', {}).get('faithfulness')
+          if faithfulness is not None:
+              threshold = float(os.environ.get('EVAL_FAITHFULNESS_MIN', '0.85'))
+              if faithfulness < threshold:
+                  print(f'FAIL: faithfulness {faithfulness} < {threshold}')
+                  sys.exit(1)
+              print(f'OK: faithfulness {faithfulness} >= {threshold}')
           "
 
   build:

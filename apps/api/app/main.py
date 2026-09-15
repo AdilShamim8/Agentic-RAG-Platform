@@ -1,24 +1,37 @@
 """FastAPI application entrypoint."""
+
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from apps.api.app.core.config import settings
-from apps.api.app.routers import auth, admin, conversations, documents, evaluations, health, memory, query, search
-from apps.api.app.observability.otel import setup_otel
 from apps.api.app.observability.logging import setup_logging
 from apps.api.app.observability.metrics import setup_metrics
+from apps.api.app.observability.otel import setup_otel
+from apps.api.app.routers import (
+    admin,
+    auth,
+    conversations,
+    documents,
+    evaluations,
+    health,
+    memory,
+    query,
+    search,
+)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Startup + shutdown hooks."""
     setup_logging(log_level=settings.app_log_level)
-    setup_otel(service_name=settings.otel_service_name, endpoint=settings.otel_exporter_otlp_endpoint)
+    setup_otel(
+        service_name=settings.otel_service_name, endpoint=settings.otel_exporter_otlp_endpoint
+    )
     setup_metrics(app)
     # TODO: warm up embedder + reranker (download models if missing)
     yield

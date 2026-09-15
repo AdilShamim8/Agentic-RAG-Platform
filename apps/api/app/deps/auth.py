@@ -1,18 +1,20 @@
 """Auth dependencies — current user extraction + permission checks."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Annotated, Sequence
+from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
 
-from apps.api.app.routers.auth import get_current_user
 from apps.api.app.models.user import User
+from apps.api.app.routers.auth import get_current_user
 
 
 @dataclass(slots=True)
 class AuthUser:
     """Lightweight auth user object passed to services."""
+
     id: str
     email: str
     name: str
@@ -69,4 +71,4 @@ def require_permission(*perms: str):
 
 
 # Re-export as AuthUser for convenience
-AuthUser = AuthUser  # noqa: F811
+AuthUser = AuthUser

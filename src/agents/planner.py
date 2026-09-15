@@ -1,4 +1,5 @@
 """Planner — generates a list of sub-questions and tool assignments."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -10,7 +11,7 @@ from src.llm.provider import LLMProvider
 @dataclass
 class PlanStep:
     sub_question: str
-    tool: str           # search_documents | search_by_date | memory_search | ...
+    tool: str  # search_documents | search_by_date | memory_search | ...
     tool_args: dict
 
 

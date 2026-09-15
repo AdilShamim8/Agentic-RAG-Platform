@@ -8,21 +8,22 @@ This is the heart of the system. It wires together:
 - failure handler
 - observability (tracing, metrics, cost)
 """
+
 from __future__ import annotations
 
 import time
 import uuid
-from typing import Any
+from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.app.deps.auth import AuthUser
 from apps.api.app.routers.query import Citation, QueryResponse
 from src.agents.orchestrator import run_agent
+from src.citations.types import CitationResult
 from src.core.failures import Failure
+from src.observability.metrics import record_cost, record_query
 from src.observability.tracing import traced_operation
-from src.observability.metrics import record_query, record_cost
-from src.observability.cost import compute_cost
 
 
 async def run_agentic_query(
@@ -41,7 +42,6 @@ async def run_agentic_query(
     and an optional failure field if the agent could not produce a grounded answer.
     """
     start = time.perf_counter()
-    cost_usd = 0.0
 
     async with traced_operation(
         "rag.query",
@@ -90,17 +90,21 @@ async def run_agentic_query(
 
         # 4. Record metrics
         latency_ms = int((time.perf_counter() - start) * 1000)
-        record_query(status="ok" if agent_result.failure is None else "failure", latency_ms=latency_ms)
+        record_query(
+            status="ok" if agent_result.failure is None else "failure", latency_ms=latency_ms
+        )
         record_cost(agent_result.cost_usd)
 
         # 5. Span attributes
-        span.set_attributes({
-            "rag.latency_ms": latency_ms,
-            "rag.citations.count": len(citations),
-            "rag.failure": agent_result.failure.value if agent_result.failure else "",
-            "rag.confidence": agent_result.confidence,
-            "rag.cost_usd": agent_result.cost_usd,
-        })
+        span.set_attributes(
+            {
+                "rag.latency_ms": latency_ms,
+                "rag.citations.count": len(citations),
+                "rag.failure": agent_result.failure.value if agent_result.failure else "",
+                "rag.confidence": agent_result.confidence,
+                "rag.cost_usd": agent_result.cost_usd,
+            }
+        )
 
         return QueryResponse(
             answer=agent_result.answer,
@@ -115,11 +119,6 @@ async def run_agentic_query(
                 "tool_calls": agent_result.tool_call_count,
             },
         )
-
-
-# Avoid circular import — define a small dataclass locally for the return shape.
-from dataclasses import dataclass, field
-from src.citations.types import CitationResult
 
 
 @dataclass(slots=True)

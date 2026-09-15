@@ -1,4 +1,5 @@
 """Background worker — runs ingestion + eval jobs from a queue."""
+
 from __future__ import annotations
 
 import asyncio

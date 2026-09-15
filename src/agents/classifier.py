@@ -1,13 +1,14 @@
 """Query classification — routes a query to the right strategy."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 from src.llm.provider import LLMProvider
 
 
-class QueryClass(str, Enum):
+class QueryClass(StrEnum):
     SIMPLE_FACTUAL = "simple_factual"
     COMPARATIVE = "comparative"
     TEMPORAL = "temporal"

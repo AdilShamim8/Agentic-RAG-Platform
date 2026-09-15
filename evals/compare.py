@@ -1,4 +1,5 @@
 """Compare baseline reports and produce evals/reports/comparison.md."""
+
 from __future__ import annotations
 
 import json
@@ -39,21 +40,21 @@ def main(reports_dir: str = typer.Option("evals/reports", help="Reports director
 
     for r in reports:
         # TODO: extract real metrics from the report
-        lines.append(
-            f"| {r.get('experiment', '?')} | ? | ? | ? | ? | ? | ? | ? |"
-        )
+        lines.append(f"| {r.get('experiment', '?')} | ? | ? | ? | ? | ? | ? | ? |")
 
-    lines.extend([
-        "",
-        "## Notes",
-        "",
-        "- All metrics are computed against the golden dataset (`evals/datasets/golden.jsonl`).",
-        "- Faithfulness and hallucination rate use an LLM-judge calibrated on 20 hand-labeled items.",
-        "- Latency is measured on a 4-core / 16 GB RAM machine with the reranker running on CPU.",
-        "- If a cell is empty, the metric was not measured for that baseline.",
-        "- **Do not fabricate numbers.** If you did not run the experiment, write `Not measured yet.`",
-        "",
-    ])
+    lines.extend(
+        [
+            "",
+            "## Notes",
+            "",
+            "- All metrics are computed against the golden dataset (`evals/datasets/golden.jsonl`).",
+            "- Faithfulness and hallucination rate use an LLM-judge calibrated on 20 hand-labeled items.",
+            "- Latency is measured on a 4-core / 16 GB RAM machine with the reranker running on CPU.",
+            "- If a cell is empty, the metric was not measured for that baseline.",
+            "- **Do not fabricate numbers.** If you did not run the experiment, write `Not measured yet.`",
+            "",
+        ]
+    )
 
     output_path = reports_path / "comparison.md"
     with open(output_path, "w") as f:

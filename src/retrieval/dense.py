@@ -3,6 +3,7 @@
 CRITICAL: RBAC filter is applied in the WHERE clause, BEFORE the vector search.
 Never retrieve-then-filter.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -46,21 +47,24 @@ async def dense_retrieve(
         ORDER BY score DESC
     """)
 
-    result = await session.execute(sql, {
-        "q": str(q_emb[0]),
-        "k": top_k,
-        "user_role": user.role_slug,
-        "user_projects": list(user.projects),
-        "user_id": user.id,
-        "department": filters.get("department"),
-        "doc_type": filters.get("doc_type"),
-        "threshold": 0.2,
-    })
+    result = await session.execute(
+        sql,
+        {
+            "q": str(q_emb[0]),
+            "k": top_k,
+            "user_role": user.role_slug,
+            "user_projects": list(user.projects),
+            "user_id": user.id,
+            "department": filters.get("department"),
+            "doc_type": filters.get("doc_type"),
+            "threshold": 0.2,
+        },
+    )
     rows = result.mappings().all()
     return [_row_to_chunk(r) for r in rows]
 
 
-def _row_to_chunk(r: dict) -> ScoredChunk:
+def _row_to_chunk(r: Any) -> ScoredChunk:
     return ScoredChunk(
         chunk_id=str(r["id"]),
         document_id=str(r["document_id"]),

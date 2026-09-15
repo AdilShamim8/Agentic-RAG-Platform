@@ -3,8 +3,8 @@
 CRITICAL: This is the single most important security primitive.
 Retrieval SQL filters on access_matches() in the WHERE clause, BEFORE the vector search.
 """
-from __future__ import annotations
 
+from __future__ import annotations
 
 # SQL function definition — applied via migration 0002
 ACCESS_MATCHES_SQL = """
@@ -63,7 +63,9 @@ $$ LANGUAGE plpgsql IMMUTABLE SECURITY DEFINER;
 """
 
 
-def can_access(*, user_role: str, user_projects: frozenset[str], user_id: str, access_policy: dict) -> bool:
+def can_access(
+    *, user_role: str, user_projects: frozenset[str], user_id: str, access_policy: dict
+) -> bool:
     """Python-side check — used for double-checking after SQL retrieval."""
     if not access_policy:
         return True
@@ -73,6 +75,4 @@ def can_access(*, user_role: str, user_projects: frozenset[str], user_id: str, a
         return True
     if user_role in access_policy.get("roles", []):
         return True
-    if set(access_policy.get("projects", [])) & user_projects:
-        return True
-    return False
+    return bool(set(access_policy.get("projects", [])) & user_projects)

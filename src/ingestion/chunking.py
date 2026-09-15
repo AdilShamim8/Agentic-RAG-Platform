@@ -1,4 +1,5 @@
 """Chunking strategies — fixed, sliding, semantic, structure-aware."""
+
 from __future__ import annotations
 
 import hashlib
@@ -48,14 +49,16 @@ class FixedTokenChunker:
             end = min(start + self.size, len(tokens))
             chunk_tokens = tokens[start:end]
             text = enc.decode(chunk_tokens)
-            chunks.append(Chunk(
-                content=text,
-                chunk_index=idx,
-                page=None,
-                section=None,
-                token_count=len(chunk_tokens),
-                content_hash=_hash(text),
-            ))
+            chunks.append(
+                Chunk(
+                    content=text,
+                    chunk_index=idx,
+                    page=None,
+                    section=None,
+                    token_count=len(chunk_tokens),
+                    content_hash=_hash(text),
+                )
+            )
             idx += 1
             if end >= len(tokens):
                 break
@@ -80,14 +83,16 @@ class SlidingWindowChunker:
             end = min(start + self.size, len(tokens))
             chunk_tokens = tokens[start:end]
             text = enc.decode(chunk_tokens)
-            chunks.append(Chunk(
-                content=text,
-                chunk_index=idx,
-                page=None,
-                section=None,
-                token_count=len(chunk_tokens),
-                content_hash=_hash(text),
-            ))
+            chunks.append(
+                Chunk(
+                    content=text,
+                    chunk_index=idx,
+                    page=None,
+                    section=None,
+                    token_count=len(chunk_tokens),
+                    content_hash=_hash(text),
+                )
+            )
             idx += 1
             if end >= len(tokens):
                 break
@@ -108,19 +113,20 @@ class SemanticChunker:
         # TODO: implement using sentence-transformers
         # For now, fall back to sentence-based chunking
         import re
+
         sentences = re.split(r"(?<=[.!?])\s+", parsed.markdown_text)
         chunks = []
-        idx = 0
-        for sentence in sentences:
-            chunks.append(Chunk(
-                content=sentence,
-                chunk_index=idx,
-                page=None,
-                section=None,
-                token_count=_count_tokens(sentence),
-                content_hash=_hash(sentence),
-            ))
-            idx += 1
+        for idx, sentence in enumerate(sentences):
+            chunks.append(
+                Chunk(
+                    content=sentence,
+                    chunk_index=idx,
+                    page=None,
+                    section=None,
+                    token_count=_count_tokens(sentence),
+                    content_hash=_hash(sentence),
+                )
+            )
         return chunks
 
 

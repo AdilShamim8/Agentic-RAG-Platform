@@ -2,12 +2,12 @@
 
 Always filtered by user_id — never cross-user.
 """
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any
+from datetime import UTC, datetime
 
-from sqlalchemy import select, and_
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.app.models.memory import Memory
@@ -25,15 +25,20 @@ async def search_memories(
     CRITICAL: filter by user_id ALWAYS. Never retrieve another user's memories.
     Filter out expired and superseded memories.
     """
-    now = datetime.now(timezone.utc)
-    stmt = select(Memory).where(
-        and_(
-            Memory.user_id == user_id,  # ALWAYS
-            Memory.deleted_at.is_(None),
-            Memory.superseded_by.is_(None),
-            (Memory.expires_at.is_(None)) | (Memory.expires_at >= now),
+    now = datetime.now(UTC)
+    stmt = (
+        select(Memory)
+        .where(
+            and_(
+                Memory.user_id == user_id,  # ALWAYS
+                Memory.deleted_at.is_(None),
+                Memory.superseded_by.is_(None),
+                (Memory.expires_at.is_(None)) | (Memory.expires_at >= now),
+            )
         )
-    ).order_by(Memory.created_at.desc()).limit(top_k * 2)
+        .order_by(Memory.created_at.desc())
+        .limit(top_k * 2)
+    )
 
     result = await session.execute(stmt)
     candidates = list(result.scalars().all())

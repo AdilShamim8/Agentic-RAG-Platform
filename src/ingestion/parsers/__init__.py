@@ -1,4 +1,5 @@
 """Parsers — convert raw bytes to markdown + structured sections."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -30,6 +31,7 @@ class MarkdownParser:
     def parse(self, raw) -> ParsedDocument:
         text = raw.content.decode("utf-8", errors="replace")
         import re
+
         sections = []
         current_title = ""
         current_level = 0
@@ -39,11 +41,13 @@ class MarkdownParser:
             m = re.match(r"^(#{1,6})\s+(.+)$", line)
             if m:
                 if current_title:
-                    sections.append(ParsedSection(
-                        title=current_title,
-                        content="\n".join(current_content),
-                        level=current_level,
-                    ))
+                    sections.append(
+                        ParsedSection(
+                            title=current_title,
+                            content="\n".join(current_content),
+                            level=current_level,
+                        )
+                    )
                 current_level = len(m.group(1))
                 current_title = m.group(2)
                 current_content = []
@@ -51,11 +55,13 @@ class MarkdownParser:
                 current_content.append(line)
 
         if current_title:
-            sections.append(ParsedSection(
-                title=current_title,
-                content="\n".join(current_content),
-                level=current_level,
-            ))
+            sections.append(
+                ParsedSection(
+                    title=current_title,
+                    content="\n".join(current_content),
+                    level=current_level,
+                )
+            )
 
         return ParsedDocument(
             markdown_text=text,
@@ -70,7 +76,13 @@ class HTMLParser:
 
     def parse(self, raw) -> ParsedDocument:
         import trafilatura
-        text = trafilatura.extract(raw.content.decode("utf-8", errors="replace"), output_format="markdown") or ""
+
+        text = (
+            trafilatura.extract(
+                raw.content.decode("utf-8", errors="replace"), output_format="markdown"
+            )
+            or ""
+        )
         return ParsedDocument(
             markdown_text=text,
             sections=[],
@@ -86,8 +98,10 @@ class PDFParser:
         # TODO: implement using docling
         # For now, use a fallback text extraction
         try:
-            from pypdf import PdfReader
             import io
+
+            from pypdf import PdfReader
+
             reader = PdfReader(io.BytesIO(raw.content))
             text = "\n\n".join((page.extract_text() or "") for page in reader.pages)
             page_map = {i: (page.extract_text() or "") for i, page in enumerate(reader.pages, 1)}
@@ -107,7 +121,9 @@ class DOCXParser:
 
     def parse(self, raw) -> ParsedDocument:
         import io
+
         from docx import Document
+
         doc = Document(io.BytesIO(raw.content))
         text = "\n\n".join(p.text for p in doc.paragraphs if p.text.strip())
         return ParsedDocument(

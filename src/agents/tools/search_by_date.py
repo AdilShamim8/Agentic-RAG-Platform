@@ -1,4 +1,5 @@
 """search_by_date tool — retrieve chunks filtered by date range."""
+
 from __future__ import annotations
 
 from datetime import date
@@ -6,7 +7,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.agents.tools.registry import register_tool, ToolResult
+from src.agents.tools.registry import ToolResult, register_tool
 from src.retrieval.engine import retrieve
 
 
@@ -36,7 +37,7 @@ async def search_by_date(
     if date_from:
         filters["effective_from_gte"] = date.fromisoformat(date_from)
     if date_to:
-        filters["effective_to_lte"] = date.toisoformat(date_to)
+        filters["effective_to_lte"] = date.fromisoformat(date_to)
 
     chunks = await retrieve(
         query=sub_question,

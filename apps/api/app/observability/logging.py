@@ -1,4 +1,5 @@
 """Logging setup — structlog with PII redaction."""
+
 from __future__ import annotations
 
 import logging
@@ -21,6 +22,7 @@ REDACT_PATTERNS = [
 
 def _redact(_, __, event_dict: dict[str, Any]) -> dict[str, Any]:
     """Processor that redacts known sensitive patterns from all log values."""
+
     def _redact_value(v: Any) -> Any:
         if isinstance(v, str):
             for pat, repl in REDACT_PATTERNS:

@@ -2,12 +2,13 @@
 
 Never silently swallow errors. Map every failure to one of these enum values.
 """
+
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 
-class Failure(str, Enum):
+class Failure(StrEnum):
     """All known failure modes. Add new ones here, never reuse a value."""
 
     NO_DOCUMENTS = "no_documents"

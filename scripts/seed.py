@@ -1,16 +1,15 @@
 """Seed script — loads demo users, roles, departments, permissions."""
+
 from __future__ import annotations
 
 import asyncio
 import uuid
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.app.core.db import session_scope
-from apps.api.app.models.role import Role, Permission, role_permissions
+from apps.api.app.models.role import Permission, Role, role_permissions
 from apps.api.app.models.user import User
-
 
 ROLES = [
     {"slug": "student", "name": "Student"},
@@ -37,10 +36,25 @@ ROLE_PERMISSIONS = {
 }
 
 USERS = [
-    {"email": "alice@demo.dev", "name": "Alice Admin", "password": "password123", "role": "administrator"},
+    {
+        "email": "alice@demo.dev",
+        "name": "Alice Admin",
+        "password": "password123",
+        "role": "administrator",
+    },
     {"email": "bob@demo.dev", "name": "Bob Manager", "password": "password123", "role": "manager"},
-    {"email": "carol@demo.dev", "name": "Carol Employee", "password": "password123", "role": "employee"},
-    {"email": "dave@demo.dev", "name": "Dave Professor", "password": "password123", "role": "professor"},
+    {
+        "email": "carol@demo.dev",
+        "name": "Carol Employee",
+        "password": "password123",
+        "role": "employee",
+    },
+    {
+        "email": "dave@demo.dev",
+        "name": "Dave Professor",
+        "password": "password123",
+        "role": "professor",
+    },
     {"email": "eve@demo.dev", "name": "Eve Student", "password": "password123", "role": "student"},
 ]
 
@@ -84,7 +98,9 @@ async def seed() -> None:
                     )
                 )
                 if link.first() is None:
-                    await session.execute(role_permissions.insert().values(role_id=role.id, permission_id=perm.id))
+                    await session.execute(
+                        role_permissions.insert().values(role_id=role.id, permission_id=perm.id)
+                    )
         await session.flush()
 
         # Users

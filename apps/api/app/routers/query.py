@@ -1,4 +1,5 @@
 """Query endpoint — the main Agentic RAG entrypoint."""
+
 from __future__ import annotations
 
 import uuid

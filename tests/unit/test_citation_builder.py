@@ -1,7 +1,8 @@
 """Unit tests for citation builder."""
+
 from __future__ import annotations
 
-from src.citations.builder import parse_markers, build_citations
+from src.citations.builder import build_citations, parse_markers
 from src.retrieval.types import ScoredChunk
 
 
@@ -14,10 +15,24 @@ def test_parse_markers():
 
 def test_build_citations():
     chunks = [
-        ScoredChunk(chunk_id="c1", document_id="d1", document_title="Doc 1",
-                    content="Content of chunk 1", score=0.9, page=1, section="Intro"),
-        ScoredChunk(chunk_id="c2", document_id="d2", document_title="Doc 2",
-                    content="Content of chunk 2", score=0.8, page=2, section="Body"),
+        ScoredChunk(
+            chunk_id="c1",
+            document_id="d1",
+            document_title="Doc 1",
+            content="Content of chunk 1",
+            score=0.9,
+            page=1,
+            section="Intro",
+        ),
+        ScoredChunk(
+            chunk_id="c2",
+            document_id="d2",
+            document_title="Doc 2",
+            content="Content of chunk 2",
+            score=0.8,
+            page=2,
+            section="Body",
+        ),
     ]
     answer = "Claim one [1]. Claim two [2]."
     citations = build_citations(answer, chunks)
@@ -31,8 +46,9 @@ def test_build_citations():
 
 def test_build_citations_out_of_range():
     chunks = [
-        ScoredChunk(chunk_id="c1", document_id="d1", document_title="Doc 1",
-                    content="content", score=0.9),
+        ScoredChunk(
+            chunk_id="c1", document_id="d1", document_title="Doc 1", content="content", score=0.9
+        ),
     ]
     answer = "Claim [1]. Out of range [2]."
     citations = build_citations(answer, chunks)
