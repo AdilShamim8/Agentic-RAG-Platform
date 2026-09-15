@@ -20,7 +20,7 @@
 
 ## 2. Test Suite Methodology
 
-The evaluation executes the test suite defined in [`evals/datasets/adversarial.jsonl`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/evals/datasets/adversarial.jsonl), spanning four critical threat domains:
+The evaluation executes the test suite defined in [`evals/datasets/adversarial.jsonl`](../../evals/datasets/adversarial.jsonl), spanning four critical threat domains:
 1. **Adversarial Injections**: Direct prompt overrides, jailbreaks, and indirect document payload injection.
 2. **Access Control & Multi-Tenancy**: Horizontal/vertical privilege escalation and citation link leakage.
 3. **Agentic Failures & Loops**: Cyclical tool calling, unbounded sub-query branching, and tool timeouts.
