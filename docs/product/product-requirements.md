@@ -45,16 +45,16 @@ The Agentic RAG Platform delivers a **grounded, access-controlled, autonomous in
 
 | ID | Requirement Area | System Behavior & Invariant | Primary Component |
 | :--- | :--- | :--- | :--- |
-| **FR-01** | **Hybrid Retrieval** | Combine dense vector cosine similarity with Postgres Full-Text Search via Reciprocal Rank Fusion ($k=60$). | [`src/retrieval/hybrid.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/retrieval/hybrid.py) |
-| **FR-02** | **Cross-Encoder Rerank** | Re-score top 50 retrieval candidates down to the top 5 highest-fidelity chunks using cross-attention. | [`src/reranking/cross_encoder.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/reranking/cross_encoder.py) |
-| **FR-03** | **Pre-Retrieval SQL RBAC**| Enforce authorization in the PostgreSQL `WHERE` clause using `rag.access_matches()` prior to vector search. | [`src/security/access.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/security/access.py) |
-| **FR-04** | **Evidence Validation** | Evaluate chunk sufficiency and contradiction before passing context to the generator LLM. | [`src/agents/evidence_validator.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/agents/evidence_validator.py) |
-| **FR-05** | **Citation Attribution** | Enforce that every generated factual claim has a supporting citation tag `[Doc-X]` verified by LLM entailment. | [`src/citations/validator.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/citations/validator.py) |
-| **FR-06** | **State Machine Bounds** | Enforce hard boundaries: $\text{max\_steps} \le 8$, $\text{max\_tool\_calls} \le 10$, $\text{timeout} \le 30\text{s}$, and SHA-256 loop detection. | [`src/agents/orchestrator.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/agents/orchestrator.py) |
-| **FR-07** | **Memory Hierarchy** | Isolate short-term conversation sliding window from long-term extracted user preferences with `user_id` filters. | [`src/memory/manager.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/memory/manager.py) |
-| **FR-08** | **Document Ingestion** | Ingest PDF, Markdown, HTML, and DOCX files into structure-aware chunks within <60s for 100 pages. | [`src/ingestion/loaders.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/ingestion/loaders.py) |
-| **FR-09** | **Continuous Telemetry**| Export OpenTelemetry spans with hashed query identifiers (`query_hash`) to Langfuse and metrics to Prometheus. | [`apps/api/app/observability/`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/apps/api/app/observability/) |
-| **FR-10** | **Adversarial Shield** | 5-layer prompt injection defense (Regex scanner, LLM classifier, XML isolation, Pydantic bounds, Sanitizer). | [`src/security/prompt_injection.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/security/prompt_injection.py) |
+| **FR-01** | **Hybrid Retrieval** | Combine dense vector cosine similarity with Postgres Full-Text Search via Reciprocal Rank Fusion ($k=60$). | [`src/retrieval/hybrid.py`](../../src/retrieval/hybrid.py) |
+| **FR-02** | **Cross-Encoder Rerank** | Re-score top 50 retrieval candidates down to the top 5 highest-fidelity chunks using cross-attention. | [`src/reranking/cross_encoder.py`](../../src/reranking/cross_encoder.py) |
+| **FR-03** | **Pre-Retrieval SQL RBAC**| Enforce authorization in the PostgreSQL `WHERE` clause using `rag.access_matches()` prior to vector search. | [`src/security/access.py`](../../src/security/access.py) |
+| **FR-04** | **Evidence Validation** | Evaluate chunk sufficiency and contradiction before passing context to the generator LLM. | [`src/agents/evidence_validator.py`](../../src/agents/evidence_validator.py) |
+| **FR-05** | **Citation Attribution** | Enforce that every generated factual claim has a supporting citation tag `[Doc-X]` verified by LLM entailment. | [`src/citations/validator.py`](../../src/citations/validator.py) |
+| **FR-06** | **State Machine Bounds** | Enforce hard boundaries: $\text{max\_steps} \le 8$, $\text{max\_tool\_calls} \le 10$, $\text{timeout} \le 30\text{s}$, and SHA-256 loop detection. | [`src/agents/orchestrator.py`](../../src/agents/orchestrator.py) |
+| **FR-07** | **Memory Hierarchy** | Isolate short-term conversation sliding window from long-term extracted user preferences with `user_id` filters. | [`src/memory/manager.py`](../../src/memory/manager.py) |
+| **FR-08** | **Document Ingestion** | Ingest PDF, Markdown, HTML, and DOCX files into structure-aware chunks within <60s for 100 pages. | [`src/ingestion/loaders.py`](../../src/ingestion/loaders.py) |
+| **FR-09** | **Continuous Telemetry**| Export OpenTelemetry spans with hashed query identifiers (`query_hash`) to Langfuse and metrics to Prometheus. | [`apps/api/app/observability/`](../../apps/api/app/observability/) |
+| **FR-10** | **Adversarial Shield** | 5-layer prompt injection defense (Regex scanner, LLM classifier, XML isolation, Pydantic bounds, Sanitizer). | [`src/security/prompt_injection.py`](../../src/security/prompt_injection.py) |
 
 ---
 
