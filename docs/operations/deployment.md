@@ -1,145 +1,179 @@
-# Deployment Guide
+# Production Deployment & Infrastructure Guide
 
-> Step-by-step deployment for dev / staging / production environments.
+> Step-by-step production operations, container orchestration, zero-downtime deployment pipelines, and post-deployment validation for local development, staging environments, and high-availability Kubernetes clusters.
 
-## Dev (single machine)
+---
+
+## 1. Environment Architecture & Port Topology
+
+| Service | Container Name | Internal Port | Host Port | Technology | Purpose |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **API Gateway** | `rag-api` | 8000 | `8000` | FastAPI / Uvicorn | REST endpoints, Orchestrator, Auth |
+| **Web Interface** | `rag-web` | 3000 | `3000` | React / Next.js | Conversational UI, Admin Console |
+| **PostgreSQL + pgvector** | `rag-postgres` | 5432 | `5432` | PostgreSQL 16 + pgvector | Document chunks, embeddings, RBAC, audit |
+| **Cache Store** | `rag-redis` | 6379 | `6379` | Redis 7 Alpine | Embedding cache, query cache, rate limits |
+| **Observability Server** | `rag-langfuse` | 3000 | `3001` | Langfuse v2 | LLM tracing, evaluation traces, latency |
+
+---
+
+## 2. Local Development Deployment
 
 ```bash
-git clone <repo> agentic-rag-platform
+# 1. Clone repository
+git clone https://github.com/AdilShamim8/Agentic-RAG-Platform.git agentic-rag-platform
 cd agentic-rag-platform
+
+# 2. Configure environment credentials
 cp .env.example .env
-# Edit .env with real keys
+# Edit .env and supply your OPENAI_API_KEY, JWT_SECRET, and LANGFUSE credentials
+
+# 3. Spin up complete infrastructure stack
 make up
+
+# 4. Apply database migrations & seed reference accounts
 make migrate
 make seed
+
+# 5. Ingest local reference documentation
 make ingest-local
 ```
 
-Verify:
-- http://localhost:8000/health → `{"status":"ok",...}`
-- http://localhost:3000 → web UI loads
-- http://localhost:3001 → Langfuse UI
+### Verification Endpoints
+- **API Health**: `http://localhost:8000/health/ready` (expect HTTP 200 with subsystem statuses `ok`)
+- **Interactive Swagger Docs**: `http://localhost:8000/docs`
+- **Web UI Client**: `http://localhost:3000`
+- **Langfuse Tracing Dashboard**: `http://localhost:3001`
 
-## Staging (single VM)
+---
 
-Provision a VM with:
-- 4 vCPU, 16 GB RAM, 100 GB SSD
-- Ubuntu 22.04 LTS
-- Docker + Docker Compose v2
+## 3. Staging Deployment (Single VM)
+
+### Recommended Hardware Spec
+- **Compute**: 4 vCPUs (x86_64, AVX2 enabled for optimal PyTorch cross-encoder inference)
+- **Memory**: 16 GB RAM (allocates 4GB shared buffers for pgvector, 4GB for model weights)
+- **Disk**: 100 GB NVMe SSD (minimum 3000 IOPS)
+- **OS**: Ubuntu 22.04 LTS with Docker 24+ & Docker Compose v2
+
+### Deployment Steps
 
 ```bash
-# SSH into the VM
-git clone <repo> /opt/agentic-rag
+# Clone to deployment directory
+git clone https://github.com/AdilShamim8/Agentic-RAG-Platform.git /opt/agentic-rag
 cd /opt/agentic-rag
+
+# Configure staging secrets
 cp .env.example .env
-# Edit .env — use strong secrets (openssl rand -hex 32)
-# Use staging config:
+# Inject high-entropy JWT secrets
+export JWT_SECRET=$(openssl rand -hex 32)
+sed -i "s|^JWT_SECRET=.*|JWT_SECRET=${JWT_SECRET}|" .env
+
+# Switch configuration to staging profile
 cp configs/staging/config.yaml configs/base/config.yaml
 
-docker compose -f docker-compose.yml -f infra/docker-compose.staging.yml up -d
+# Pull and start services in background
+docker compose -f docker-compose.yml up -d --build
+
+# Run database schema migrations
 docker compose exec api python -m alembic upgrade head
+
+# Seed testing users and reference documents
 docker compose exec api python -m scripts.seed
 ```
 
-### Nightly backups
-
-Add to cron on the VM:
+### Automated Nightly Backup Cron
+Add the following entry to `/etc/cron.d/rag_backup`:
 
 ```cron
-0 2 * * * cd /opt/agentic-rag && docker compose exec -T postgres pg_dump -U rag rag | gzip > /opt/backups/rag-$(date +\%Y\%m\%d).sql.gz && aws s3 cp /opt/backups/rag-$(date +\%Y\%m\%d).sql.gz s3://your-backup-bucket/agentic-rag/staging/
+0 2 * * * root cd /opt/agentic-rag && docker compose exec -T postgres pg_dump -U rag -Fc rag > /opt/backups/rag-$(date +\%Y\%m\%d).dump && aws s3 cp /opt/backups/rag-$(date +\%Y\%m\%d).dump s3://enterprise-rag-backups/staging/ --storage-class STANDARD_IA
 ```
 
-Retain 30 days.
+---
 
-### Log aggregation
+## 4. Production High-Availability Deployment
 
-- Configure Docker logging driver to `json-file` with rotation:
-  ```json
-  {
-    "log-driver": "json-file",
-    "log-opts": {"max-size": "100m", "max-file": "10"}
-  }
-  ```
-- Ship logs to your log aggregator (Loki, ELK, CloudWatch) via Fluent Bit.
+### Kubernetes Architecture (EKS / GKE)
 
-## Production (HA VM pair or Kubernetes)
-
-### Option A: HA VM pair with Docker Compose
-
-- Two VMs behind a load balancer (NGINX, ALB, Cloud Load Balancer).
-- Each VM runs the full stack (api, web, worker).
-- Postgres on managed RDS / Cloud SQL (NOT on the VMs).
-- S3 for object storage (original document files).
-- Langfuse on a dedicated VM (or use Langfuse Cloud).
-- Blue/green: deploy to VM A, verify, switch traffic, deploy to VM B.
-
-### Option B: Kubernetes
-
-Manifests in `infra/k8s/`:
+Kubernetes manifests are maintained in `infra/k8s/`:
 
 ```bash
 kubectl apply -f infra/k8s/namespace.yaml
-kubectl apply -k infra/k8s/
+kubectl apply -k infra/k8s/overlays/production/
 ```
 
-Includes:
-- `Deployment` for api, web, worker (3 replicas each)
-- `Service` for api (ClusterIP) and web (ClusterIP)
-- `Ingress` for web (TLS termination)
-- `HorizontalPodAutoscaler` for api (CPU > 70%)
-- `PodDisruptionBudget` for api (min available: 2)
-- `Secret` for env vars (populate from external secrets manager)
+### Key Workload Specifications
+- **API Deployment**: 3+ replicas with `HorizontalPodAutoscaler` scaling on CPU utilization (>70%) and custom Prometheus metric `rag_query_latency_seconds_p95`.
+- **Pod Disruption Budget (PDB)**: Enforces `minAvailable: 2` to prevent downtime during cluster upgrades.
+- **Managed Database Layer**: Dedicated RDS PostgreSQL 16 instance with Multi-AZ replication, `pgvector` extension, and automated WAL archiving.
+- **Managed Object Store**: S3 bucket with versioning and object lock for immutable audit logs.
 
-### Database
+---
 
-- Use managed Postgres (RDS, Cloud SQL, Aurora).
-- Enable automated backups (7-day retention).
-- Enable point-in-time recovery.
-- Provision IOPS based on benchmark results.
-- Enable pgvector extension: `CREATE EXTENSION IF NOT EXISTS vector;`
+## 5. Health Probes & Load Balancer Integration
 
-### Object storage
+The API provides two distinct probe endpoints in [`apps/api/app/routers/health.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/apps/api/app/routers/health.py):
 
-- S3 bucket for original document files.
-- S3 bucket for database backups.
-- Lifecycle policy: transition backups to Glacier after 30 days, delete after 1 year.
+### 5.1. Liveness Probe (`GET /health`)
+- Used by Kubernetes kubelet to detect deadlocked worker processes.
+- Returns HTTP 200 immediately if process event loop is responsive.
 
-### Secrets
+### 5.2. Readiness Probe (`GET /health/ready`)
+- Used by load balancers and ingress controllers to route live traffic.
+- Validates that all downstream dependencies are operating within latency tolerances.
 
-- Use AWS Secrets Manager / GCP Secret Manager / HashiCorp Vault.
-- NEVER commit secrets to git.
-- The app reads secrets from env vars; the orchestrator injects them from the secrets manager.
+**Sample Response Payload**:
+```json
+{
+  "status": "ready",
+  "version": "1.0.0",
+  "subsystems": {
+    "database": "ok",
+    "redis": "ok",
+    "embedding_model": "ok",
+    "reranker_model": "ok",
+    "llm_provider": "ok"
+  }
+}
+```
 
-### Rollback
+---
 
-1. **Application rollback**: deploy previous Docker image tag.
-2. **Database rollback**: `alembic downgrade -1` (every migration has a tested `downgrade()`).
-3. **Prompt rollback**: edit config to point `prompt_version` at the previous version (`v1` instead of `v2`). No redeploy needed.
+## 6. Zero-Downtime Rollback Protocols
 
-### Health checks
+1. **Application Code Rollback**:
+   Re-tag and deploy the previous immutable Docker image tag:
+   ```bash
+   kubectl set image deployment/rag-api rag-api=ghcr.io/adilshamim8/agentic-rag-api:v1.2.3
+   ```
+2. **Database Schema Rollback**:
+   Every Alembic migration script includes an audited, verified `downgrade()` implementation:
+   ```bash
+   docker compose exec api alembic downgrade -1
+   ```
+3. **Prompt & Configuration Rollback**:
+   Prompts are versioned in `prompts/v1/` and `prompts/v2/`. Roll back instantly without container rebuilds by updating `configs/prod/config.yaml`:
+   ```yaml
+   prompts:
+     version: "v1"
+   ```
+   Execute hot-reload without downtime.
 
-- `/health` — liveness probe (always 200 if process alive).
-- `/health/ready` — readiness probe (checks DB, embedder, LLM, reranker).
-- Configure load balancer to use `/health/ready`.
+---
 
-## Post-deploy verification
+## 7. Post-Deployment Smoke Verification
 
-After every deploy:
+Execute following every release:
 
-1. `curl https://your-domain/health/ready` returns 200 with all subsystems `ok`.
-2. Run `make eval-smoke` against the production endpoint — faithfulness ≥ 0.85.
-3. Submit a test query as `alice@demo.dev` — verify answer + citations.
-4. Check Langfuse — verify traces are arriving.
-5. Check Prometheus — verify `rag_query_total` is incrementing.
+```bash
+# 1. Verify all subsystem readiness
+curl -f -s http://localhost:8000/health/ready | jq .
 
-## Rollback drill (monthly)
+# 2. Execute 10-item CI smoke evaluation suite
+make eval-smoke
 
-Once a month, in staging:
+# 3. Validate live query with verified citation attribution
+curl -s -X POST http://localhost:8000/query \
+  -H "Authorization: Bearer $TEST_USER_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What is the policy for remote work?"}' | jq .
+```
 
-1. Deploy v1.
-2. Deploy v2.
-3. Rollback to v1.
-4. Verify rollback succeeds (queries work, no errors).
-5. Document any issues.
-
-A rollback you've never tested is not a rollback.
