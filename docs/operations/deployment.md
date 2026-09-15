@@ -110,7 +110,7 @@ kubectl apply -k infra/k8s/overlays/production/
 
 ## 5. Health Probes & Load Balancer Integration
 
-The API provides two distinct probe endpoints in [`apps/api/app/routers/health.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/apps/api/app/routers/health.py):
+The API provides two distinct probe endpoints in [`apps/api/app/routers/health.py`](../../apps/api/app/routers/health.py):
 
 ### 5.1. Liveness Probe (`GET /health`)
 - Used by Kubernetes kubelet to detect deadlocked worker processes.
