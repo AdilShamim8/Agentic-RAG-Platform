@@ -67,7 +67,7 @@ Agentic RAG (State Machine):
 
 ## 2. Dynamic Routing: The Classifier
 
-Implemented in [`src/agents/classifier.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/agents/classifier.py), incoming queries are categorized to select the optimal computational path:
+Implemented in [`src/agents/classifier.py`](../../src/agents/classifier.py), incoming queries are categorized to select the optimal computational path:
 
 | Intent Category | Query Characteristic | Execution Path | Token & Latency Cost |
 | :--- | :--- | :--- | :--- |
@@ -82,7 +82,7 @@ Implemented in [`src/agents/classifier.py`](file:///c:/Users/Adil/Downloads/Agen
 
 ## 3. The State Machine Specification
 
-Defined in [`src/agents/state.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/agents/state.py), `AgentState` is an immutable, type-safe data model tracking the trajectory of each turn:
+Defined in [`src/agents/state.py`](../../src/agents/state.py), `AgentState` is an immutable, type-safe data model tracking the trajectory of each turn:
 
 ```python
 class AgentStateName(StrEnum):
@@ -107,8 +107,8 @@ class AgentStateName(StrEnum):
      {"step": 2, "sub_question": "What were the reported cost overruns?", "tool": "search_documents", "args": {"query": "Project Alpha cost overruns Q2"}}
    ]
    ```
-2. **`EVIDENCE_VALIDATION`**: Handled in [`src/agents/evidence_validator.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/agents/evidence_validator.py). A dedicated LLM-judge reviews the aggregated pool of retrieved chunks against the sub-questions. If information is missing and the step budget allows, the orchestrator triggers an additional targeted `TOOL_CALL`.
-3. **`CITATION_VALIDATION`**: Handled in [`src/agents/citation_validator.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/agents/citation_validator.py). Validates that every citation marker (`[1]`, `[2]`) in the drafted answer is factually supported by its linked chunk. If all citations fail validation, the answer is withheld under `HALLUCINATION_DETECTED`.
+2. **`EVIDENCE_VALIDATION`**: Handled in [`src/agents/evidence_validator.py`](../../src/agents/evidence_validator.py). A dedicated LLM-judge reviews the aggregated pool of retrieved chunks against the sub-questions. If information is missing and the step budget allows, the orchestrator triggers an additional targeted `TOOL_CALL`.
+3. **`CITATION_VALIDATION`**: Handled in [`src/agents/citation_validator.py`](../../src/agents/citation_validator.py). Validates that every citation marker (`[1]`, `[2]`) in the drafted answer is factually supported by its linked chunk. If all citations fail validation, the answer is withheld under `HALLUCINATION_DETECTED`.
 
 ---
 
@@ -124,7 +124,7 @@ Autonomous agents without strict termination bounds risk infinite recursion and 
 | **Loop Detection** | 2 consecutive identical calls | Evaluated in `AgentState.is_looping()` | Abort loop with `Failure(code="AGENT_LOOP")`. |
 
 ### The SHA-256 Loop Detection Algorithm
-Implemented in [`src/agents/state.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/agents/state.py):
+Implemented in [`src/agents/state.py`](../../src/agents/state.py):
 1. On each tool call, the tool name and its arguments dictionary are serialized into canonical sorted JSON.
 2. A truncated SHA-256 hash is computed:
    ```python
