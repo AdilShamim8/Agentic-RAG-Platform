@@ -267,7 +267,7 @@ Agent correctly decomposes multi-hop queries. Prompt injection defenses block al
 2. Circular imports in `routers/query.py` and `routers/search.py`.
 
 ### Fix
-1. Escaped literal braces in all prompt templates: `{` → `{{`, `}` → `}}`.
+1. Escaped literal braces in all prompt templates: doubled opening and closing braces (`{` to `&#123;&#123;`, `}` to `&#125;&#125;`).
 2. Reordered imports and used `TYPE_CHECKING` guards in the affected router files.
 
 ### Trade-offs
