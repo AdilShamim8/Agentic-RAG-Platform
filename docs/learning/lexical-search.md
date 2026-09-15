@@ -54,7 +54,7 @@ $$\text{Score}_{\text{CD}} = \sum \frac{w_i}{\text{span length}}$$
 ## 3. Implementation in the Codebase
 
 ### 3.1 GIN Indexing Migration
-Defined in [`alembic/versions/0001_init_schema.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/alembic/versions/0001_init_schema.py), the `tsv` column is backed by a **Generalized Inverted Index (GIN)**:
+Defined in [`alembic/versions/0001_init_schema.py`](../../alembic/versions/0001_init_schema.py), the `tsv` column is backed by a **Generalized Inverted Index (GIN)**:
 
 ```sql
 ALTER TABLE document_chunks ADD COLUMN tsv tsvector;
@@ -63,7 +63,7 @@ CREATE INDEX ix_document_chunks_tsv ON document_chunks USING GIN(tsv);
 GIN indexes map each lexeme directly to the list of chunk IDs containing that lexeme, enabling logarithmic sub-5ms lookup times across millions of rows.
 
 ### 3.2 SQL Execution and RBAC Enforcement
-Implemented in [`src/retrieval/lexical.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/retrieval/lexical.py), the query joins `documents` and enforces pre-retrieval role access control:
+Implemented in [`src/retrieval/lexical.py`](../../src/retrieval/lexical.py), the query joins `documents` and enforces pre-retrieval role access control:
 
 ```sql
 SELECT c.id, c.content, c.metadata, c.page, c.section, c.version,
@@ -82,7 +82,7 @@ LIMIT :k;
 ```
 
 ### 3.3 Score Normalization
-`ts_rank_cd` yields raw floating point numbers typically in the range $[0.01, 0.9]$. In [`src/retrieval/lexical.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/retrieval/lexical.py), scores are normalized relative to the maximum observed score in the batch:
+`ts_rank_cd` yields raw floating point numbers typically in the range $[0.01, 0.9]$. In [`src/retrieval/lexical.py`](../../src/retrieval/lexical.py), scores are normalized relative to the maximum observed score in the batch:
 
 ```python
 max_score = max((float(r["score"]) for r in rows), default=1.0)
@@ -119,7 +119,7 @@ if max_score > 0:
 
 ### 5.3 Hyphenated Terms & Product Identifiers
 - **Problem**: Terms like `v1.0.4-rc1` can be split into multiple tokens (`v1`, `0`, `4`, `rc1`).
-- **Mitigation**: Technical code chunks and identifiers are preserved in raw content and ingested with code-aware cleaning in [`src/ingestion/cleaning.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/ingestion/cleaning.py).
+- **Mitigation**: Technical code chunks and identifiers are preserved in raw content and ingested with code-aware cleaning in [`src/ingestion/cleaning.py`](../../src/ingestion/cleaning.py).
 
 ---
 
