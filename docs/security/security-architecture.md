@@ -36,7 +36,7 @@ Authentication is decoupled and stateless, built on JSON Web Tokens (JWT) using 
 
 ### 3.1. Role Taxonomy & Capabilities
 
-Role-based access controls are strictly modeled in [`src/security/rbac.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/security/rbac.py):
+Role-based access controls are strictly modeled in [`src/security/rbac.py`](../../src/security/rbac.py):
 
 | Role | Slug | Capabilities / Permissions |
 | :--- | :--- | :--- |
@@ -159,7 +159,7 @@ graph TD
 
 ## 5. Audit Logging & Forensics
 
-All administrative and security-critical actions are recorded in an append-only database table (`audit_logs`) via [`src/security/audit.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/security/audit.py):
+All administrative and security-critical actions are recorded in an append-only database table (`audit_logs`) via [`src/security/audit.py`](../../src/security/audit.py):
 
 | Action Type | Trigger Condition | Captured Metadata |
 | :--- | :--- | :--- |
