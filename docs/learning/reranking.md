@@ -51,7 +51,7 @@ The platform implements **`BAAI/bge-reranker-v2-m3`**:
 ## 3. Implementation in the Codebase
 
 ### 3.1 Reranker Protocol
-Defined in [`src/reranking/base.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/reranking/base.py), the `Reranker` protocol ensures alternative backends (such as Cohere Rerank API or local lightweight models) can be swapped transparently:
+Defined in [`src/reranking/base.py`](../../src/reranking/base.py), the `Reranker` protocol ensures alternative backends (such as Cohere Rerank API or local lightweight models) can be swapped transparently:
 
 ```python
 class Reranker(Protocol):
@@ -61,7 +61,7 @@ class Reranker(Protocol):
 ```
 
 ### 3.2 Asynchronous Execution and Score Normalization
-Implemented in [`src/reranking/cross_encoder.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/reranking/cross_encoder.py):
+Implemented in [`src/reranking/cross_encoder.py`](../../src/reranking/cross_encoder.py):
 
 ```python
 class BGECrossEncoderReranker:
@@ -111,7 +111,7 @@ Cross-encoders cannot precompute embeddings because the model requires the runti
 | **50 candidates (Default)** | **~320 ms** | **97.8%** | **Default configuration for enterprise precision** |
 | **100 candidates** | ~640 ms | 98.4% | Batch / non-interactive analytical search |
 
-**Tuning Guideline**: In [`configs/base/config.yaml`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/configs/base/config.yaml), set `candidate_count: 50` for standard production workloads. If latency budgets require p95 $< 1\text{s}$, reducing candidates to $25$ yields a $50\%$ reduction in reranking latency with less than $3.2\%$ reduction in recall.
+**Tuning Guideline**: In [`configs/base/config.yaml`](../../configs/base/config.yaml), set `candidate_count: 50` for standard production workloads. If latency budgets require p95 $< 1\text{s}$, reducing candidates to $25$ yields a $50\%$ reduction in reranking latency with less than $3.2\%$ reduction in recall.
 
 ---
 
@@ -133,7 +133,7 @@ By distilling 50 candidates into the **Top 5 cleanest, verified chunks** (2,000 
 
 ### 6.1 Inference Timeout on CPU Spikes
 - **Failure**: Heavy concurrent request volume causes CPU contention, pushing reranking latency past the 5-second threshold.
-- **Mitigation**: The retrieval engine in [`src/retrieval/engine.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/retrieval/engine.py) implements a graceful fallback: if the reranker encounters a timeout or exception, it logs a warning and returns the Top-5 candidates directly from Stage 1 Hybrid RRF.
+- **Mitigation**: The retrieval engine in [`src/retrieval/engine.py`](../../src/retrieval/engine.py) implements a graceful fallback: if the reranker encounters a timeout or exception, it logs a warning and returns the Top-5 candidates directly from Stage 1 Hybrid RRF.
 
 ### 6.2 Disagreement Between Vector Search and Reranker
 - **Failure**: Hybrid search ranks Chunk A at #1, but the Cross-Encoder ranks Chunk A at #35 and promotes Chunk B to #1.
