@@ -52,7 +52,7 @@ The platform standardizes on **`BAAI/bge-m3`** as its primary default embedder, 
 ## 3. Implementation in the Agentic RAG Platform
 
 ### 3.1 The Embedder Protocol Abstraction
-Defined in [`src/retrieval/embedders.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/retrieval/embedders.py), the platform uses a vendor-agnostic Python `Protocol` to decouple the indexing and retrieval pipelines from specific ML runtimes:
+Defined in [`src/retrieval/embedders.py`](../../src/retrieval/embedders.py), the platform uses a vendor-agnostic Python `Protocol` to decouple the indexing and retrieval pipelines from specific ML runtimes:
 
 ```python
 class Embedder(Protocol):
@@ -61,7 +61,7 @@ class Embedder(Protocol):
 ```
 
 ### 3.2 Asynchronous Threadpool Offloading
-Local transformer inference (`BGEM3FlagModel`) is synchronous and CPU/GPU-bound. Executing it directly within an `async` route would block the ASGI event loop (preventing concurrent API requests). In [`src/retrieval/embedders.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/retrieval/embedders.py), execution is delegated to an executor thread:
+Local transformer inference (`BGEM3FlagModel`) is synchronous and CPU/GPU-bound. Executing it directly within an `async` route would block the ASGI event loop (preventing concurrent API requests). In [`src/retrieval/embedders.py`](../../src/retrieval/embedders.py), execution is delegated to an executor thread:
 
 ```python
 loop = asyncio.get_event_loop()
@@ -73,7 +73,7 @@ return result.tolist()
 ```
 
 ### 3.3 Pre-Retrieval SQL RBAC & Dense Querying
-In [`src/retrieval/dense.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/retrieval/dense.py), vector distance calculation is executed strictly inside a PostgreSQL `WITH authorized AS (...)` CTE. Access control policies (`rag.access_matches`) are evaluated in the `WHERE` clause **before** candidate ranking:
+In [`src/retrieval/dense.py`](../../src/retrieval/dense.py), vector distance calculation is executed strictly inside a PostgreSQL `WITH authorized AS (...)` CTE. Access control policies (`rag.access_matches`) are evaluated in the `WHERE` clause **before** candidate ranking:
 
 ```sql
 WITH authorized AS (
@@ -116,7 +116,7 @@ Because the index comfortably fits in system cache, sub-15ms p95 vector scan lat
 
 ### 5.1 Out-of-Domain Specialized Acronyms
 - **Failure**: Standard pretrained models may project niche organizational acronyms (e.g., `CAP-402`, `SOC2-T3`) into uninformative regions of semantic space.
-- **Mitigation**: The platform never relies solely on dense embeddings. It pairs dense search with Postgres Lexical Full-Text Search (`tsvector`) via **Reciprocal Rank Fusion (RRF)** in [`src/retrieval/hybrid.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/retrieval/hybrid.py).
+- **Mitigation**: The platform never relies solely on dense embeddings. It pairs dense search with Postgres Lexical Full-Text Search (`tsvector`) via **Reciprocal Rank Fusion (RRF)** in [`src/retrieval/hybrid.py`](../../src/retrieval/hybrid.py).
 
 ### 5.2 Asymmetric Query vs. Passage Length
 - **Failure**: A 5-word user question may have a distinct embedding signature from a 300-word policy section describing the same topic.
@@ -124,7 +124,7 @@ Because the index comfortably fits in system cache, sub-15ms p95 vector scan lat
 
 ### 5.3 Embedding Model Drift
 - **Failure**: Changing the embedding model (e.g., migrating from 1536-dim Ada-002 to 1024-dim BGE-m3) invalidates existing vectors. Cosine distance between embeddings from different models is mathematically meaningless.
-- **Mitigation**: Embedding dimensions are strictly schema-enforced via PostgreSQL column definitions (`embedding vector(1024)`). Model names and versions are tracked in chunk metadata, and batch re-indexing scripts are provided in [`scripts/ingest.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/scripts/ingest.py).
+- **Mitigation**: Embedding dimensions are strictly schema-enforced via PostgreSQL column definitions (`embedding vector(1024)`). Model names and versions are tracked in chunk metadata, and batch re-indexing scripts are provided in [`scripts/ingest.py`](../../scripts/ingest.py).
 
 ---
 
