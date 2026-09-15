@@ -30,7 +30,7 @@ Standard naive RAG systems operate statelessly: each user turn is processed in c
 
 ## 2. Short-Term Memory: Conversation Sliding Window
 
-Implemented in [`src/memory/short_term.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/memory/short_term.py), short-term memory enables conversational co-reference resolution (e.g., understanding that *"What were its security implications?"* refers to the document discussed in the previous prompt).
+Implemented in [`src/memory/short_term.py`](../../src/memory/short_term.py), short-term memory enables conversational co-reference resolution (e.g., understanding that *"What were its security implications?"* refers to the document discussed in the previous prompt).
 
 - **Sliding Window**: Default $N=10$ message history.
 - **Context Injection**: Prior dialogue turns are prepended to the generator prompt under `<conversation_history>` tags.
@@ -40,7 +40,7 @@ Implemented in [`src/memory/short_term.py`](file:///c:/Users/Adil/Downloads/Agen
 
 ## 3. Long-Term Memory: Schema and Taxonomy
 
-Implemented in [`src/memory/long_term.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/memory/long_term.py) and [`apps/api/app/models/memory.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/apps/api/app/models/memory.py), long-term memories are categorized into four distinct functional scopes:
+Implemented in [`src/memory/long_term.py`](../../src/memory/long_term.py) and [`apps/api/app/models/memory.py`](../../apps/api/app/models/memory.py), long-term memories are categorized into four distinct functional scopes:
 
 1. **`user_pref`**: Formatting, presentation, and tone preferences.
    - Example: *"User prefers answers formatted as bullet points with code snippets."*
@@ -76,7 +76,7 @@ CREATE INDEX ix_memories_expires_at ON memories(expires_at);
 ## 4. Extraction & Conflict Resolution Pipeline
 
 ### 4.1 Automatic Extraction
-After each completed query turn, the orchestrator triggers background memory extraction using [`src/memory/long_term.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/memory/long_term.py):
+After each completed query turn, the orchestrator triggers background memory extraction using [`src/memory/long_term.py`](../../src/memory/long_term.py):
 
 ```python
 async def extract_memories(
@@ -103,7 +103,7 @@ The platform handles this via an immutable audit trail using the `superseded_by`
 ## 5. Security & Privacy Guarantees
 
 ### 5.1 Strict Multi-Tenant Isolation
-Memories are private to individual users. In [`src/memory/retrieval.py`](file:///c:/Users/Adil/Downloads/Agentic-RAG-Platform-main/src/memory/retrieval.py), every query enforces an uncompromising SQL predicate:
+Memories are private to individual users. In [`src/memory/retrieval.py`](../../src/memory/retrieval.py), every query enforces an uncompromising SQL predicate:
 
 ```sql
 SELECT * FROM memories
