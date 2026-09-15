@@ -28,7 +28,7 @@ Each step has:
 - tool: one of "search_documents", "search_by_date", "memory_search", "get_document_versions"
 - tool_args: a dict of arguments for the tool
 
-Return JSON: {"steps": [{"sub_question": "...", "tool": "...", "tool_args": {...}}], "rationale": "..."}
+Return JSON: {{"steps": [{{"sub_question": "...", "tool": "...", "tool_args": {{...}}}}], "rationale": "..."}}
 
 For simple_factual queries, return ONE step.
 For multi_hop queries, return 2-4 steps in execution order.
