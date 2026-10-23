@@ -123,7 +123,15 @@ async def ingest_upload(
     """Ingest an uploaded file: validate -> parse -> clean -> chunk -> index -> version + audit."""
     raw = await file.read()
     filename = file.filename or "upload"
+    return await ingest_bytes(
+        filename=filename, raw=raw, user=user, session=session, department=department
+    )
 
+
+async def ingest_bytes(
+    *, filename: str, raw: bytes, user: AuthUser, session: AsyncSession, department: str
+) -> DocumentOut:
+    """The ingest pipeline over in-memory bytes (uploads AND background jobs)."""
     if not raw:
         raise HTTPException(status_code=400, detail="Uploaded file is empty")
     if len(raw) > MAX_UPLOAD_BYTES:

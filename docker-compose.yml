@@ -147,6 +147,20 @@ services:
       - ./scripts:/app/scripts:ro
       - ./data:/app/data
     command: python -m scripts.worker
+    # Override the Dockerfile's curl-:8000 check (that is the API container's
+    # healthcheck): the worker is alive iff its heartbeat file is fresh.
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import os,sys,time; sys.exit(0 if time.time()-os.path.getmtime('/tmp/rag-worker-heartbeat') < 30 else 1)",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
   # ---------------------------------------------------------------------------
   # Next.js frontend

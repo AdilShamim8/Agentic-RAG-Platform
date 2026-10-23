@@ -1,10 +1,9 @@
 """Rate-limiter backend tests.
 
-The Redis backend is exercised against a minimal in-process double that
-implements exactly the commands the limiter uses (sorted sets, TTL'd string
-keys, transactional pipelines). This keeps the tests hermetic - no Redis
-server, no fakeredis dependency - while pinning the semantics that must
-match the in-memory backend exactly:
+The Redis backend is exercised against the shared in-process FakeRedis
+(tests/fakes.py) so the tests stay hermetic - no Redis server, no extra
+dependency - while pinning the semantics that must match the in-memory
+backend exactly:
 
 - blocked only after max_failures failures within the window
 - the blocked-until cooldown outlives failures ageing out of the window
@@ -23,86 +22,7 @@ from apps.api.app.core.rate_limit import (
     RedisLoginRateLimiter,
     get_login_limiter,
 )
-
-
-class FakePipe:
-    def __init__(self, store: FakeRedis) -> None:
-        self._store = store
-        self._ops: list[tuple[str, tuple]] = []
-
-    def zadd(self, key: str, mapping: dict) -> FakePipe:
-        self._ops.append(("zadd", (key, mapping)))
-        return self
-
-    def zremrangebyscore(self, key: str, lo: str, hi: float) -> FakePipe:
-        self._ops.append(("zrem", (key, lo, hi)))
-        return self
-
-    def zcard(self, key: str) -> FakePipe:
-        self._ops.append(("zcard", (key,)))
-        return self
-
-    def expire(self, key: str, ttl: int) -> FakePipe:
-        self._ops.append(("expire", (key, ttl)))
-        return self
-
-    async def execute(self) -> list:
-        results = []
-        for op, args in self._ops:
-            if op == "zadd":
-                key, mapping = args
-                self._store.zsets.setdefault(key, []).extend(mapping.items())
-                results.append(True)
-            elif op == "zrem":
-                key, _, hi = args
-                bucket = self._store.zsets.get(key, [])
-                self._store.zsets[key] = [(m, s) for (m, s) in bucket if s > hi]
-                results.append(True)
-            elif op == "zcard":
-                (key,) = args
-                results.append(len(self._store.zsets.get(key, [])))
-            elif op == "expire":
-                results.append(True)
-        self._ops.clear()
-        return results
-
-
-class FakeRedis:
-    """Just enough Redis for RedisLoginRateLimiter (sorted sets + strings)."""
-
-    def __init__(self) -> None:
-        self.zsets: dict[str, list[tuple[str, float]]] = {}
-        self.strings: dict[str, str] = {}
-        self.ttls: dict[str, int] = {}
-
-    def pipeline(self, transaction: bool = True) -> FakePipe:
-        return FakePipe(self)
-
-    async def ping(self) -> bool:
-        return True
-
-    async def get(self, key: str) -> str | None:
-        return self.strings.get(key)
-
-    async def set(self, key: str, value: float, ex: int | None = None) -> bool:
-        self.strings[key] = str(value)
-        if ex is not None:
-            self.ttls[key] = ex
-        return True
-
-    async def delete(self, key: str) -> int:
-        n = 0
-        for store in (self.strings, self.zsets, self.ttls):
-            if key in store:
-                del store[key]
-                n += 1
-        return n
-
-    async def scan_iter(self, match: str):
-        prefix = match.rstrip("*")
-        for key in list(self.strings) + list(self.zsets):
-            if key.startswith(prefix):
-                yield key
+from tests.fakes import FakeRedis
 
 
 def _redis_limiter() -> RedisLoginRateLimiter:
