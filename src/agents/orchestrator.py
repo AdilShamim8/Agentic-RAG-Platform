@@ -36,6 +36,7 @@ from src.agents.tools import execute_tool
 from src.core.failures import Failure, user_message
 from src.llm.provider import get_llm_provider
 from src.observability.tracing import traced_operation
+from src.security.prompt_injection import classify_input
 
 
 async def run_agent(
@@ -97,6 +98,18 @@ async def _run_loop(
         state.answer = "I don't have enough evidence to answer this confidently."
         state.failure = Failure.INSUFFICIENT_EVIDENCE
         state.current_state = AgentStateName.END
+        return
+
+    # 1b. Prompt-injection screen (Layer 1 of the documented defense).
+    #     The regex runs first (no LLM call); the LLM judge is only consulted
+    #     when the regex finds nothing. A judge failure is conservative-allow
+    #     (documented in prompt_injection.py) - output side is still sanitized.
+    async with traced_operation("agent.injection_check", trace_id=state.trace_id):
+        injection = await classify_input(state.query, llm)
+    if injection.is_injection:
+        state.answer = user_message(Failure.UNSAFE_CONTENT)
+        state.failure = Failure.UNSAFE_CONTENT
+        state.current_state = AgentStateName.FAILED
         return
 
     feedback = ""
