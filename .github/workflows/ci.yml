@@ -82,6 +82,9 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: alembic upgrade head
       - run: python -m scripts.seed
+      # Fixture corpus (conflict pairs, golden references) — required by the
+      # clarify/conflict integration tests; mirrors the regression job.
+      - run: python -m scripts.seed_fixtures
       - run: pytest tests/integration -v
 
   security-tests:
@@ -179,10 +182,11 @@ jobs:
       REDIS_URL: redis://localhost:6379/0
       JWT_SECRET: test-secret-please-change-me-to-64-chars-aaaaaaaaaaaa
       APP_SECRET_KEY: test-secret-please-change-me-to-64-chars-aaaaaaaaaaaa
-      # Real key optional: the runner falls back to the deterministic mock
-      # provider (recorded in the report) when the secret is absent.
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      # Real key optional: with no secret configured the runner uses the
+      # deterministic mock provider ('sk-test'), recorded in the report.
+      # An empty value would otherwise crash the real OpenAI client.
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || 'sk-test' }}
+      HF_TOKEN: ${{ secrets.HF_TOKEN || 'hf_test' }}
       APP_ENV: dev
       EMBEDDING_MODEL: test-hashed-bag
       RERANKER_MODEL: test-passthrough
