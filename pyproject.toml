@@ -39,14 +39,13 @@ dependencies = [
     "python-jose[cryptography]>=3.3.0",
     "passlib[bcrypt]>=1.7.4",
     "bcrypt<4.1.0",
-    "python-jwt",
     # LLM + embeddings
     "openai>=1.51.0",
     "anthropic>=0.39.0",
-    "sentence-transformers>=3.1.0",
     "tiktoken>=0.7.0",
     # Document processing
-    "docling>=2.5.0",
+    "docling>=2.5.0",  # optional deep PDF parsing (PDFParser falls back to pypdf)
+    "pypdf>=4.0.0",
     "trafilatura>=1.12.0",
     "python-docx>=1.1.2",
     "beautifulsoup4>=4.12.0",
@@ -102,9 +101,6 @@ Homepage = "https://github.com/your-org/agentic-rag-platform"
 Repository = "https://github.com/your-org/agentic-rag-platform"
 Documentation = "https://github.com/your-org/agentic-rag-platform/tree/main/docs"
 Issues = "https://github.com/your-org/agentic-rag-platform/issues"
-
-[project.scripts]
-rag = "apps.api.app.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
