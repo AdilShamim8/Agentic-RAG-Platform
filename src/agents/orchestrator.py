@@ -79,6 +79,8 @@ async def run_agent(
         cost_usd=state.cost_usd,
         tool_call_count=state.tool_calls,
         replans=state.replans,
+        retrieved_chunk_ids=[str(c.chunk_id) for c in state.retrieved_chunks[:50]],
+        scores=[float(c.score) for c in state.retrieved_chunks[:50]],
     )
 
 

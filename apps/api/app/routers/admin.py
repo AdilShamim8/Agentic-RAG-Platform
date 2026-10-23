@@ -2,10 +2,12 @@
 
 Previously /stats returned hardcoded zeros and /health/detailed claimed
 "connected: true" for subsystems that are not even wired up. Now /stats
-runs real aggregate queries and /health/detailed reports actual state:
-the DB pool status from the live engine, model singletons as loaded/
-warming, langfuse configured/unconfigured, and Redis marked honestly as
-"not wired" (no Redis client exists in the codebase yet).
+runs real aggregate queries (documents, chunks, conversations, users,
+memories, retrieval events, average latency, and per-event provider cost
+summed from retrieval_events.cost_usd) and /health/detailed reports
+actual state: the DB pool status from the live engine, model singletons
+as loaded/warming, langfuse configured/unconfigured, and the resolved
+login-rate-limit backend (redis or memory).
 """
 
 from __future__ import annotations
@@ -57,6 +59,7 @@ async def stats(
     avg_latency = (
         round(sum(e.latency_ms for e in event_rows) / len(event_rows)) if event_rows else 0
     )
+    cost_usd = round(sum(e.cost_usd for e in event_rows), 6)
     return {
         "documents": int(documents or 0),
         "chunks": int(chunks or 0),
@@ -65,7 +68,7 @@ async def stats(
         "memories": int(memories or 0),
         "retrieval_events_24h": len(event_rows),
         "avg_latency_ms_24h": avg_latency,
-        "cost_usd_24h": 0.0,  # cost accounting is not persisted per event yet (known gap)
+        "cost_usd_24h": cost_usd,  # sum of retrieval_events.cost_usd (per-event)
     }
 
 

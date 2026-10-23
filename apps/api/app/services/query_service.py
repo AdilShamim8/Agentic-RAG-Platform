@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.app.deps.auth import AuthUser
 from apps.api.app.models.conversation import Message
+from apps.api.app.models.experiment import RetrievalEvent
 from apps.api.app.schemas import Citation, QueryResponse
 from src.agents.orchestrator import run_agent
 from src.citations.types import CitationResult
@@ -36,6 +37,14 @@ class AgentResult:
     cost_usd: float = 0.0
     tool_call_count: int = 0
     replans: int = 0
+    retrieved_chunk_ids: list[str] = None  # type: ignore[assignment]
+    scores: list[float] = None  # type: ignore[assignment]
+
+    def __post_init__(self) -> None:
+        if self.retrieved_chunk_ids is None:
+            self.retrieved_chunk_ids = []
+        if self.scores is None:
+            self.scores = []
 
 
 async def _ensure_conversation(
@@ -182,6 +191,21 @@ async def run_agentic_query(
             agent_result=agent_result,
             trace_id=trace_id,
             latency_ms=latency_ms,
+        )
+
+        # 3b. Persist the retrieval event (telemetry + per-event cost, the
+        #     data behind /admin/stats cost_usd_24h). Chunk ids/scores are
+        #     capped to keep the JSONB bounded.
+        session.add(
+            RetrievalEvent(
+                query=query[:2048],
+                user_id=uuid.UUID(user.id),
+                retrieved_chunk_ids=agent_result.retrieved_chunk_ids[:50],
+                scores=[round(s, 6) for s in agent_result.scores[:50]],
+                latency_ms=latency_ms,
+                trace_id=trace_id,
+                cost_usd=round(agent_result.cost_usd, 8),
+            )
         )
 
         # 4. Record metrics

@@ -46,7 +46,7 @@ class Evaluation(Base):
 
 
 class RetrievalEvent(Base):
-    """Log of a retrieval event for telemetry and latency analysis."""
+    """Log of a retrieval event for telemetry, latency, and cost analysis."""
 
     __tablename__ = "retrieval_events"
 
@@ -59,4 +59,6 @@ class RetrievalEvent(Base):
     scores: Mapped[list] = mapped_column(JSONB, default=list)
     latency_ms: Mapped[int] = mapped_column(Integer, nullable=False)
     trace_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Cumulative provider cost of the event (LLM + embedding tokens, USD).
+    cost_usd: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
