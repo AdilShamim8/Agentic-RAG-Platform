@@ -97,9 +97,16 @@ async def test_async_ingest_queues_job_and_worker_processes_it(
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_async_ingest_503_when_queue_unavailable() -> None:
-    """No Redis, no queue: the endpoint must fail loudly (no silent drop)."""
-    jobs.set_jobs_client(None)  # force a real (unreachable) connection
+async def test_async_ingest_503_when_queue_unavailable(monkeypatch) -> None:
+    """No reachable Redis, no queue: the endpoint must fail loudly (no silent drop).
+
+    CI runs a real Redis service, so clearing the cached client alone is not
+    enough - get_jobs_client() would just connect to it successfully. Point
+    the queue at a dead port (9/discard: nothing listens there) to force the
+    unreachable-queue path end to end.
+    """
+    monkeypatch.setattr(jobs.settings, "redis_url", "redis://127.0.0.1:9/0")
+    jobs.set_jobs_client(None)  # next use builds a client for the dead URL
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         token = await _login(client)
         response = await client.post(
