@@ -37,6 +37,8 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+# ...but the web app's src/lib is real source code, not a Python artifact
+!apps/web/src/lib/
 
 # Virtual environments
 .venv/
