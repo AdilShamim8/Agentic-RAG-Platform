@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.app.core.db import get_session
-from apps.api.app.deps.auth import AuthUser, get_current_user
+from apps.api.app.deps.auth import AuthUser, get_auth_user
 
 router = APIRouter()
 
@@ -50,7 +50,7 @@ from apps.api.app.services.query_service import run_agentic_query  # noqa: E402
 @router.post("/", response_model=QueryResponse)
 async def query(
     body: QueryRequest,
-    user: Annotated[AuthUser, Depends(get_current_user)],
+    user: Annotated[AuthUser, Depends(get_auth_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> QueryResponse:
     trace_id = str(uuid.uuid4())

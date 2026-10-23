@@ -8,14 +8,14 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.app.core.db import get_session
-from apps.api.app.deps.auth import AuthUser, get_current_user, require_permission
+from apps.api.app.deps.auth import AuthUser, get_auth_user, require_permission
 
 router = APIRouter()
 
 
 @router.get("/experiments")
 async def list_experiments(
-    user: Annotated[AuthUser, Depends(get_current_user)],
+    user: Annotated[AuthUser, Depends(get_auth_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[dict]:
     # TODO: query experiments table
@@ -25,7 +25,7 @@ async def list_experiments(
 @router.get("/experiments/{experiment_id}")
 async def get_experiment(
     experiment_id: str,
-    user: Annotated[AuthUser, Depends(get_current_user)],
+    user: Annotated[AuthUser, Depends(get_auth_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict:
     # TODO: return full report

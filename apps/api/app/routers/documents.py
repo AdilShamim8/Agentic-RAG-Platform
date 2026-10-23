@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.app.core.db import get_session
-from apps.api.app.deps.auth import AuthUser, get_current_user, require_permission
+from apps.api.app.deps.auth import AuthUser, get_auth_user, require_permission
 
 router = APIRouter()
 
@@ -45,7 +45,7 @@ from apps.api.app.services.document_service import (  # noqa: E402
 
 @router.get("", response_model=list[DocumentOut])
 async def list_docs(
-    user: Annotated[AuthUser, Depends(get_current_user)],
+    user: Annotated[AuthUser, Depends(get_auth_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
     limit: int = 50,
     offset: int = 0,
@@ -68,7 +68,7 @@ async def ingest(
 @router.get("/{document_id}", response_model=DocumentDetail)
 async def get_doc(
     document_id: str,
-    user: Annotated[AuthUser, Depends(get_current_user)],
+    user: Annotated[AuthUser, Depends(get_auth_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> DocumentDetail:
     doc = await get_document(document_id=document_id, user=user, session=session)
@@ -80,7 +80,7 @@ async def get_doc(
 @router.get("/{document_id}/versions")
 async def get_versions(
     document_id: str,
-    user: Annotated[AuthUser, Depends(get_current_user)],
+    user: Annotated[AuthUser, Depends(get_auth_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[dict]:
     return await get_document_versions(document_id=document_id, user=user, session=session)

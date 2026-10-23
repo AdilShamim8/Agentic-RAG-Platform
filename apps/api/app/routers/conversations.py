@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.app.core.db import get_session
-from apps.api.app.deps.auth import AuthUser, get_current_user
+from apps.api.app.deps.auth import AuthUser, get_auth_user
 from apps.api.app.services.conversation_service import (
     create_conversation,
     get_conversation,
@@ -32,7 +32,7 @@ class ConversationDetail(ConversationOut):
 
 @router.get("", response_model=list[ConversationOut])
 async def list_convos(
-    user: Annotated[AuthUser, Depends(get_current_user)],
+    user: Annotated[AuthUser, Depends(get_auth_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[ConversationOut]:
     return await list_conversations(user_id=user.id, session=session)
@@ -40,7 +40,7 @@ async def list_convos(
 
 @router.post("", response_model=ConversationOut)
 async def create_convo(
-    user: Annotated[AuthUser, Depends(get_current_user)],
+    user: Annotated[AuthUser, Depends(get_auth_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
     title: str = "New conversation",
 ) -> ConversationOut:
@@ -50,7 +50,7 @@ async def create_convo(
 @router.get("/{conversation_id}", response_model=ConversationDetail)
 async def get_convo(
     conversation_id: str,
-    user: Annotated[AuthUser, Depends(get_current_user)],
+    user: Annotated[AuthUser, Depends(get_auth_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> ConversationDetail:
     convo = await get_conversation(

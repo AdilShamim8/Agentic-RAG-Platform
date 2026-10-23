@@ -1,4 +1,15 @@
-"""Auth dependencies — current user extraction + permission checks."""
+"""Auth dependencies — current user extraction + permission checks.
+
+Two layers:
+- `routers.auth.get_current_user` resolves the JWT to the ORM `User` (auth endpoints).
+- `get_auth_user` (below) converts it to a lightweight `AuthUser` value object.
+
+Routers and services MUST depend on `get_auth_user`: passing the ORM `User`
+into services/agents breaks attribute contracts (`User.permissions` is an
+async property -> coroutine, `User.projects` is not a frozenset), which
+previously caused "coroutine was never awaited" warnings and made tool
+permission checks meaningless.
+"""
 
 from __future__ import annotations
 
@@ -13,7 +24,7 @@ from apps.api.app.routers.auth import get_current_user
 
 @dataclass(slots=True)
 class AuthUser:
-    """Lightweight auth user object passed to services."""
+    """Lightweight auth user object passed to services and the agent."""
 
     id: str
     email: str
@@ -32,6 +43,7 @@ class AuthUser:
 
 
 async def to_auth_user(user: User) -> AuthUser:
+    """Convert an ORM User to an AuthUser value object."""
     return AuthUser(
         id=str(user.id),
         email=user.email,
@@ -46,20 +58,14 @@ async def to_auth_user(user: User) -> AuthUser:
 async def get_auth_user(
     current: Annotated[User, Depends(get_current_user)],
 ) -> AuthUser:
-    return await to_auth_user(current)
-
-
-# Use this as the dependency in routers
-async def get_current_user_dep(
-    current: Annotated[User, Depends(get_current_user)],
-) -> AuthUser:
+    """Dependency used by all non-auth routers. Always yields AuthUser."""
     return await to_auth_user(current)
 
 
 def require_permission(*perms: str):
     """Returns a dependency that asserts the user has at least one of the given permissions."""
 
-    async def _checker(user: Annotated[AuthUser, Depends(get_current_user_dep)]) -> AuthUser:
+    async def _checker(user: Annotated[AuthUser, Depends(get_auth_user)]) -> AuthUser:
         if not any(user.has_permission(p) for p in perms):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -68,7 +74,3 @@ def require_permission(*perms: str):
         return user
 
     return _checker
-
-
-# Re-export as AuthUser for convenience
-AuthUser = AuthUser

@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.app.core.db import get_session
-from apps.api.app.deps.auth import AuthUser, get_current_user
+from apps.api.app.deps.auth import AuthUser, get_auth_user
 
 router = APIRouter()
 
@@ -49,7 +49,7 @@ from apps.api.app.services.search_service import search_chunks  # noqa: E402
 @router.post("/", response_model=SearchResponse)
 async def search(
     body: SearchRequest,
-    user: Annotated[AuthUser, Depends(get_current_user)],
+    user: Annotated[AuthUser, Depends(get_auth_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> SearchResponse:
     return await search_chunks(

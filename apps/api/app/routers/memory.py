@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.app.core.db import get_session
-from apps.api.app.deps.auth import AuthUser, get_current_user
+from apps.api.app.deps.auth import AuthUser, get_auth_user
 from apps.api.app.services.memory_service import (
     delete_memory,
     export_memories,
@@ -37,7 +37,7 @@ class MemoryUpdate(BaseModel):
 
 @router.get("", response_model=list[MemoryOut])
 async def list_user_memories(
-    user: Annotated[AuthUser, Depends(get_current_user)],
+    user: Annotated[AuthUser, Depends(get_auth_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[MemoryOut]:
     return await list_memories(user_id=user.id, session=session)
@@ -47,7 +47,7 @@ async def list_user_memories(
 async def update_user_memory(
     memory_id: str,
     body: MemoryUpdate,
-    user: Annotated[AuthUser, Depends(get_current_user)],
+    user: Annotated[AuthUser, Depends(get_auth_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> MemoryOut:
     memory = await update_memory(
@@ -61,7 +61,7 @@ async def update_user_memory(
 @router.delete("/{memory_id}")
 async def delete_user_memory(
     memory_id: str,
-    user: Annotated[AuthUser, Depends(get_current_user)],
+    user: Annotated[AuthUser, Depends(get_auth_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict:
     deleted = await delete_memory(memory_id=memory_id, user_id=user.id, session=session)
@@ -72,7 +72,7 @@ async def delete_user_memory(
 
 @router.get("/export")
 async def export_user_memories(
-    user: Annotated[AuthUser, Depends(get_current_user)],
+    user: Annotated[AuthUser, Depends(get_auth_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict:
     """GDPR-friendly export."""
