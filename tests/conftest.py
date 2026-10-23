@@ -14,6 +14,9 @@ os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("OPENAI_API_KEY", "sk-test")
 os.environ.setdefault("HF_TOKEN", "hf_test")
 os.environ.setdefault("APP_ENV", "dev")
+# Deterministic offline embedder for tests/CI (no Hugging Face downloads).
+# Override with a real model name to exercise the local/OpenAI embedders.
+os.environ.setdefault("EMBEDDING_MODEL", "test-hashed-bag")
 
 
 @pytest.fixture(autouse=True)

@@ -37,6 +37,48 @@ class _LocalBGEEmbedder:
         return result.tolist()
 
 
+class _HashedBagEmbedder:
+    """Deterministic hashed bag-of-words embedder for tests and offline evals.
+
+    Selected by EMBEDDING_MODEL names starting with "test-" (e.g.
+    "test-hashed-bag"), mirroring the sk-test mock LLM. It maps each
+    alphanumeric token to a stable dimension (sha1 of the token mod dim)
+    and produces L2-normalized count vectors, so cosine similarity
+    approximates vocabulary overlap. This lets the whole retrieval stack
+    (dense, hybrid, rerankers, evaluations) run with no network access,
+    no model downloads, and fully reproducible results.
+
+    NOT a semantic embedder - never use for production. Outputs are
+    documented as approximate in evaluation reports.
+    """
+
+    def __init__(self, model_name: str = "test-hashed-bag") -> None:
+        import hashlib
+        import re
+
+        self._model_name = model_name
+        self.dim = 1024
+        self._token_re = re.compile(r"[a-z0-9]+")
+        self._hashlib = hashlib
+
+    def _vector(self, text: str) -> list[float]:
+        import math
+
+        vec = [0.0] * self.dim
+        tokens = self._token_re.findall(text.lower())
+        for token in tokens:
+            digest = self._hashlib.sha1(token.encode("utf-8")).digest()
+            idx = int.from_bytes(digest[:4], "big") % self.dim
+            vec[idx] += 1.0
+        norm = math.sqrt(sum(v * v for v in vec))
+        if norm > 0:
+            vec = [v / norm for v in vec]
+        return vec
+
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        return [self._vector(t) for t in texts]
+
+
 class _OpenAIEmbedder:
     """OpenAI text-embedding-3-large embedder."""
 
@@ -56,10 +98,16 @@ _embedder: Embedder | None = None
 
 
 def get_embedder() -> Embedder:
-    """Singleton accessor. Picks the embedder based on settings."""
+    """Singleton accessor. Picks the embedder based on settings.
+
+    EMBEDDING_MODEL starting with "test-" selects the deterministic hashed
+    bag-of-words embedder (offline tests/evals, see _HashedBagEmbedder).
+    """
     global _embedder
     if _embedder is None:
-        if settings.embedding_model.startswith("text-embedding"):
+        if settings.embedding_model.startswith("test-"):
+            _embedder = _HashedBagEmbedder(model_name=settings.embedding_model)
+        elif settings.embedding_model.startswith("text-embedding"):
             _embedder = _OpenAIEmbedder(model_name=settings.embedding_model)
         else:
             _embedder = _LocalBGEEmbedder(model_name=settings.embedding_model)

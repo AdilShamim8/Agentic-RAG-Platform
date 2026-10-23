@@ -1,7 +1,8 @@
 """Dense retrieval — pgvector cosine similarity.
 
 CRITICAL: RBAC filter is applied in the WHERE clause, BEFORE the vector search.
-Never retrieve-then-filter.
+Never retrieve-then-filter. The effective-date window is likewise enforced
+in SQL (see src/retrieval/freshness.py).
 """
 
 from __future__ import annotations
@@ -12,6 +13,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.retrieval.embedders import get_embedder
+from src.retrieval.freshness import effective_window_sql
+from src.retrieval.sqlfilters import optional_filter_sql
 from src.retrieval.types import ScoredChunk
 
 
@@ -26,8 +29,10 @@ async def dense_retrieve(
     embedder = get_embedder()
     q_emb = await embedder.embed([query])
     filters = filters or {}
+    window_sql, window_params = effective_window_sql(filters)
+    opt_sql, opt_params = optional_filter_sql(filters)
 
-    sql = text("""
+    raw_sql = f"""
         WITH authorized AS (
             SELECT c.id, c.content, c.metadata, c.page, c.section, c.version,
                    d.title AS document_title, d.url, d.effective_from, d.effective_to,
@@ -37,26 +42,27 @@ async def dense_retrieve(
             JOIN documents d ON d.id = c.document_id
             WHERE d.deleted_at IS NULL
               AND rag.access_matches(d.access_policy, :user_role, :user_projects, :user_id)
-              AND (:department IS NULL OR d.department = :department)
-              AND (:doc_type IS NULL OR d.doc_type = :doc_type)
+              {window_sql}
+              {opt_sql}
             ORDER BY c.embedding <=> CAST(:q AS vector)
             LIMIT :k
         )
         SELECT * FROM authorized
         WHERE score >= :threshold
         ORDER BY score DESC
-    """)
+    """
+    sql = text(raw_sql)
 
     result = await session.execute(
         sql,
         {
+            **window_params,
+            **opt_params,
             "q": str(q_emb[0]),
             "k": top_k,
             "user_role": user.role_slug,
             "user_projects": list(user.projects),
             "user_id": user.id,
-            "department": filters.get("department"),
-            "doc_type": filters.get("doc_type"),
             "threshold": 0.2,
         },
     )

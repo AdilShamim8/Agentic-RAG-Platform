@@ -1,4 +1,9 @@
-"""Lexical retrieval — Postgres FTS with ts_rank_cd scoring."""
+"""Lexical retrieval — Postgres FTS with ts_rank_cd scoring.
+
+CRITICAL: RBAC filter is applied in the WHERE clause, BEFORE the FTS match.
+The effective-date window is likewise enforced in SQL (see
+src/retrieval/freshness.py).
+"""
 
 from __future__ import annotations
 
@@ -7,6 +12,8 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.retrieval.freshness import effective_window_sql
+from src.retrieval.sqlfilters import optional_filter_sql
 from src.retrieval.types import ScoredChunk
 
 
@@ -19,7 +26,10 @@ async def lexical_retrieve(
     filters: dict | None = None,
 ) -> list[ScoredChunk]:
     filters = filters or {}
-    sql = text("""
+    window_sql, window_params = effective_window_sql(filters)
+    opt_sql, opt_params = optional_filter_sql(filters)
+
+    raw_sql = f"""
         SELECT c.id, c.content, c.metadata, c.page, c.section, c.version,
                d.title AS document_title, d.url, d.effective_from, d.effective_to,
                d.access_policy, d.id AS document_id,
@@ -29,21 +39,22 @@ async def lexical_retrieve(
         WHERE d.deleted_at IS NULL
           AND c.tsv @@ plainto_tsquery('english', :q)
           AND rag.access_matches(d.access_policy, :user_role, :user_projects, :user_id)
-          AND (:department IS NULL OR d.department = :department)
-          AND (:doc_type IS NULL OR d.doc_type = :doc_type)
+          {window_sql}
+          {opt_sql}
         ORDER BY score DESC
         LIMIT :k
-    """)
+    """
+    sql = text(raw_sql)
     result = await session.execute(
         sql,
         {
+            **window_params,
+            **opt_params,
             "q": query,
             "k": top_k,
             "user_role": user.role_slug,
             "user_projects": list(user.projects),
             "user_id": user.id,
-            "department": filters.get("department"),
-            "doc_type": filters.get("doc_type"),
         },
     )
     rows = [dict(r) for r in result.mappings().all()]
