@@ -91,6 +91,8 @@ services:
       LANGFUSE_PUBLIC: ${LANGFUSE_PUBLIC}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       HF_TOKEN: ${HF_TOKEN}
+      # Both secrets are required by Settings (min 32 chars each, see .env.example)
+      APP_SECRET_KEY: ${APP_SECRET_KEY}
       JWT_SECRET: ${JWT_SECRET}
       APP_ENV: dev
       APP_LOG_LEVEL: INFO
@@ -136,6 +138,9 @@ services:
       REDIS_URL: redis://redis:6379/0
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       HF_TOKEN: ${HF_TOKEN}
+      # Worker imports apps.api models -> Settings requires both secrets
+      APP_SECRET_KEY: ${APP_SECRET_KEY}
+      JWT_SECRET: ${JWT_SECRET}
       APP_ENV: dev
     volumes:
       - ./src:/app/src:ro

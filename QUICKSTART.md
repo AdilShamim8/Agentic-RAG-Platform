@@ -26,9 +26,13 @@ OPENAI_API_KEY=sk-...
 HF_TOKEN=hf_...
 LANGFUSE_SECRET=...        # any random 32-char string
 LANGFUSE_PUBLIC=...        # any random 32-char string
-JWT_SECRET=...             # any random 64-char string
+APP_SECRET_KEY=...         # any random 64-char string (REQUIRED, min 32 chars)
+JWT_SECRET=...             # any random 64-char string (REQUIRED, min 32 chars)
 DATABASE_URL=postgresql+asyncpg://rag:rag@postgres:5432/rag
 ```
+
+Both `APP_SECRET_KEY` and `JWT_SECRET` are required by the API and worker services;
+the stack will not start without them.
 
 Generate random secrets with:
 
