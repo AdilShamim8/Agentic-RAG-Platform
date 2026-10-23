@@ -8,6 +8,7 @@ from apps.api.app.models.conversation import Conversation, Message
 from apps.api.app.models.document import Document, DocumentChunk, DocumentVersion, Source
 from apps.api.app.models.experiment import Evaluation, Experiment, RetrievalEvent
 from apps.api.app.models.memory import Memory
+from apps.api.app.models.refresh_token import RevokedRefreshToken
 from apps.api.app.models.role import Permission, Role, role_permissions
 from apps.api.app.models.user import User
 
@@ -24,6 +25,7 @@ __all__ = [
     "Message",
     "Permission",
     "RetrievalEvent",
+    "RevokedRefreshToken",
     "Role",
     "Source",
     "User",

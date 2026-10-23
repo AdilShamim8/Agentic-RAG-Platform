@@ -1,30 +1,32 @@
 "use client";
 
 /**
- * Minimal auth client.
+ * Auth client.
  *
- * Tokens live in localStorage. This is acceptable for this demo deployment
- * because the API is same-origin behind the Next.js rewrite; production
- * deployments should move refresh-token storage to an HttpOnly cookie
- * (see docs/reviews/engineering_audit.md - remaining risks).
+ * Token model (matches the backend's hardened auth):
+ * - The ACCESS token (short-lived) lives in sessionStorage - readable by JS,
+ *   but it expires quickly and is not the long-lived credential.
+ * - The REFRESH token lives ONLY in an HttpOnly cookie set by the server.
+ *   JavaScript never sees it; refresh/logout calls rely on the browser
+ *   attaching the cookie automatically (same-origin /api rewrite).
+ * - refreshAccessToken() performs a silent refresh (cookie -> new access
+ *   token). Each refresh token is single-use (server-side rotation).
  */
 
 const ACCESS_KEY = "rag.access_token";
-const REFRESH_KEY = "rag.refresh_token";
 
 export interface Tokens {
   access_token: string;
-  refresh_token: string;
+  refresh_token: string; // present for API clients; the browser ignores it
 }
 
 export function getAccessToken(): string | null {
   if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(ACCESS_KEY);
+  return window.sessionStorage.getItem(ACCESS_KEY);
 }
 
-export function getRefreshToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(REFRESH_KEY);
+function setAccessToken(token: string): void {
+  window.sessionStorage.setItem(ACCESS_KEY, token);
 }
 
 export function isLoggedIn(): boolean {
@@ -33,8 +35,7 @@ export function isLoggedIn(): boolean {
 
 export function clearTokens(): void {
   if (typeof window === "undefined") return;
-  window.localStorage.removeItem(ACCESS_KEY);
-  window.localStorage.removeItem(REFRESH_KEY);
+  window.sessionStorage.removeItem(ACCESS_KEY);
 }
 
 export async function login(email: string, password: string): Promise<Tokens> {
@@ -42,6 +43,7 @@ export async function login(email: string, password: string): Promise<Tokens> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
+    credentials: "include", // receive the HttpOnly refresh cookie
   });
   if (res.status === 401) {
     throw new Error("Invalid email or password");
@@ -53,11 +55,45 @@ export async function login(email: string, password: string): Promise<Tokens> {
     throw new Error(`Login failed (${res.status})`);
   }
   const tokens = (await res.json()) as Tokens;
-  window.localStorage.setItem(ACCESS_KEY, tokens.access_token);
-  window.localStorage.setItem(REFRESH_KEY, tokens.refresh_token);
+  // Only the access token is stored client-side. The refresh token stays
+  // in the HttpOnly cookie the server just set.
+  setAccessToken(tokens.access_token);
   return tokens;
 }
 
-export function logout(): void {
+/**
+ * Silent refresh: ask the server for a new access token. The refresh token
+ * is sent automatically via the HttpOnly cookie. Returns null when the
+ * session is gone (expired/revoked) and the user must log in again.
+ */
+export async function refreshAccessToken(): Promise<string | null> {
+  try {
+    const res = await fetch("/api/auth/refresh", {
+      method: "POST",
+      credentials: "include",
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { access_token?: string };
+    if (!data.access_token) return null;
+    setAccessToken(data.access_token);
+    return data.access_token;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Logout: revoke the refresh token server-side (the cookie carries it) and
+ * clear the local access token. Safe to call when already signed out.
+ */
+export async function logout(): Promise<void> {
   clearTokens();
+  try {
+    await fetch("/api/auth/logout", {
+      method: "POST",
+      credentials: "include",
+    });
+  } catch {
+    // Network failures must not block local sign-out.
+  }
 }

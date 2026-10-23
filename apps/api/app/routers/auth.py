@@ -1,9 +1,22 @@
-"""Auth endpoints: login, refresh, me.
+"""Auth endpoints: login, refresh, logout, me.
 
 Login contract (consistent with QUICKSTART.md and the web UI):
 - JSON body: {"email": "...", "password": "..."} -> 200 Token | 401 | 422
 - OAuth2 form body (username or email + password) is still accepted for
   OpenAPI/Swagger "Authorize" flows.
+
+Refresh-token handling (server-side rotation + revocation):
+- Login and refresh set the refresh token as an HttpOnly cookie (the
+  browser never exposes it to JavaScript). The JSON body still carries it
+  for non-browser API clients (curl, scripts, evals).
+- /auth/refresh accepts the token from the JSON body (API clients, checked
+  as-is) or the HttpOnly cookie (browsers) - never from the URL/query
+  (query strings leak into logs).
+- Every refresh ROTATES the token: the presented jti is added to the
+  revoked_refresh_tokens deny list and a fresh token is issued. Presenting
+  an already-revoked jti (a replay/theft signal) is rejected with 401 and
+  audited.
+- /auth/logout revokes the presented refresh token and clears the cookie.
 
 Security:
 - Uniform 401 message for unknown email and wrong password (no user
@@ -12,17 +25,16 @@ Security:
 - In-memory sliding-window rate limit on failed logins (5 per 5 minutes
   per client+identifier; single-process only - use Redis in production
   multi-worker deployments).
-- /auth/refresh takes the token in the JSON body, never in the URL/query
-  (query strings leak into logs and proxies).
 """
 
 from __future__ import annotations
 
 import time
+import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from pydantic import BaseModel, EmailStr, Field
@@ -31,6 +43,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.app.core.config import settings
 from apps.api.app.core.db import get_session
+from apps.api.app.models.audit import AuditLog
+from apps.api.app.models.refresh_token import RevokedRefreshToken
 from apps.api.app.models.user import User
 
 router = APIRouter()
@@ -53,6 +67,12 @@ class LoginRequest(BaseModel):
 
 class RefreshRequest(BaseModel):
     refresh_token: str = Field(min_length=10, max_length=4096)
+
+
+class LogoutRequest(BaseModel):
+    """Optional logout body - the cookie alone is enough for browsers."""
+
+    refresh_token: str | None = Field(default=None, min_length=10, max_length=4096)
 
 
 class UserOut(BaseModel):
@@ -127,7 +147,54 @@ def _create_token(subject: str, expires_minutes: int, token_type: str) -> str:
         "exp": now + timedelta(minutes=expires_minutes),
         "type": token_type,
     }
+    if token_type == "refresh":
+        # Unique JWT ID - the handle for the revocation list.
+        payload["jti"] = uuid.uuid4().hex
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+
+
+def _refresh_max_age_seconds() -> int:
+    return settings.jwt_refresh_token_expire_days * 24 * 60 * 60
+
+
+def _set_refresh_cookie(response: Response, token: str) -> None:
+    """Store the refresh token where JavaScript cannot read it."""
+    response.set_cookie(
+        key=settings.refresh_cookie_name,
+        value=token,
+        max_age=_refresh_max_age_seconds(),
+        httponly=True,
+        secure=settings.refresh_cookie_secure,
+        samesite=settings.refresh_cookie_samesite,
+        path="/",
+    )
+
+
+def _clear_refresh_cookie(response: Response) -> None:
+    response.delete_cookie(
+        key=settings.refresh_cookie_name,
+        secure=settings.refresh_cookie_secure,
+        samesite=settings.refresh_cookie_samesite,
+        path="/",
+    )
+
+
+async def _revoke_refresh(session: AsyncSession, *, user_id: str, payload: dict) -> None:
+    """Record the token's jti on the deny list (idempotent)."""
+    jti = payload.get("jti")
+    exp = payload.get("exp")
+    if not jti or not exp:
+        return
+    existing = await session.get(RevokedRefreshToken, str(jti))
+    if existing is not None:
+        return
+    session.add(
+        RevokedRefreshToken(
+            jti=str(jti),
+            user_id=uuid.UUID(str(user_id)),
+            expires_at=datetime.fromtimestamp(float(exp), tz=UTC),
+        )
+    )
 
 
 # A real bcrypt hash of an unguessable value; verified when the user does not
@@ -177,6 +244,7 @@ async def get_current_user(
 @router.post("/login", response_model=Token, summary="Login (JSON or OAuth2 form)")
 async def login(
     request: Request,
+    response: Response,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> Token:
     """Issue access + refresh tokens.
@@ -184,6 +252,9 @@ async def login(
     Body (documented contract): `{"email": "...", "password": "..."}`.
     OAuth2 `x-www-form-urlencoded` with `username` (or `email`) + `password`
     is also accepted for Swagger's Authorize button.
+
+    The refresh token is returned in the body (non-browser clients) AND set
+    as an HttpOnly cookie (browsers - JavaScript can never read it).
     """
     content_type = (request.headers.get("content-type") or "").lower()
     identifier: str
@@ -239,48 +310,113 @@ async def login(
         rate_limiter.record_failure(client_key, identifier)
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
+    refresh = _create_token(
+        str(user.id), settings.jwt_refresh_token_expire_days * 24 * 60, "refresh"
+    )
+    _set_refresh_cookie(response, refresh)
     return Token(
         access_token=_create_token(
             str(user.id), settings.jwt_access_token_expire_minutes, "access"
         ),
-        refresh_token=_create_token(
-            str(user.id), settings.jwt_refresh_token_expire_days * 24 * 60, "refresh"
-        ),
+        refresh_token=refresh,
         expires_in=settings.jwt_access_token_expire_minutes * 60,
     )
 
 
 @router.post("/refresh", response_model=Token)
 async def refresh_token(
-    body: RefreshRequest,
+    request: Request,
+    response: Response,
     session: Annotated[AsyncSession, Depends(get_session)],
+    body: RefreshRequest | None = None,
 ) -> Token:
-    """Exchange a valid refresh token for new tokens. The token is supplied in
-    the JSON body (never in the URL, where it would leak via logs/proxies)."""
+    """Exchange a valid refresh token for new tokens (with rotation).
+
+    Token sources: the JSON body if present (API clients; validated as-is),
+    otherwise the HttpOnly cookie (browser flow) - never the URL/query.
+    The presented token is revoked (its jti joins the deny list) and a
+    brand-new pair is issued, so each refresh token can be used exactly
+    once. Replaying a rotated token is a theft signal and is rejected with
+    401 + an audit record.
+    """
+    presented = (
+        body.refresh_token if body is not None and body.refresh_token else None
+    ) or request.cookies.get(settings.refresh_cookie_name)
+    if not presented:
+        raise HTTPException(status_code=401, detail="Missing refresh token")
+
     credentials_exc = HTTPException(status_code=401, detail="Invalid refresh token")
     try:
-        payload = jwt.decode(
-            body.refresh_token, settings.jwt_secret, algorithms=[settings.jwt_algorithm]
-        )
+        payload = jwt.decode(presented, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
         if payload.get("type") != "refresh":
             raise credentials_exc
         user_id = payload.get("sub")
+        jti = payload.get("jti")
+        if not user_id or not jti:
+            raise credentials_exc
     except JWTError as e:
         raise credentials_exc from e
+
+    # Reuse detection: a jti already on the deny list means this token was
+    # rotated or logged out earlier - someone is replaying it.
+    if await session.get(RevokedRefreshToken, str(jti)) is not None:
+        session.add(
+            AuditLog(
+                actor_id=uuid.UUID(str(user_id)),
+                action="auth.refresh_reuse_detected",
+                target=str(jti),
+                metadata_={"reason": "revoked jti presented"},
+            )
+        )
+        await session.commit()  # persist the audit row before the 401 rollback
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
 
     user = await session.get(User, user_id)
     if user is None or user.deleted_at is not None:
         raise credentials_exc
 
+    # Rotate: the presented token dies, a fresh one is issued.
+    await _revoke_refresh(session, user_id=str(user.id), payload=payload)
+    refresh = _create_token(
+        str(user.id), settings.jwt_refresh_token_expire_days * 24 * 60, "refresh"
+    )
+    _set_refresh_cookie(response, refresh)
     return Token(
         access_token=_create_token(
             str(user.id), settings.jwt_access_token_expire_minutes, "access"
         ),
-        refresh_token=_create_token(
-            str(user.id), settings.jwt_refresh_token_expire_days * 24 * 60, "refresh"
-        ),
+        refresh_token=refresh,
         expires_in=settings.jwt_access_token_expire_minutes * 60,
     )
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT, summary="Logout")
+async def logout(
+    request: Request,
+    response: Response,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    body: LogoutRequest | None = None,
+) -> None:
+    """Revoke the presented refresh token and clear the cookie.
+
+    Idempotent: calling logout without any token is a no-op that still
+    returns 204. Browsers send the HttpOnly cookie automatically; API
+    clients may pass `{"refresh_token": "..."}` in the body (which takes
+    precedence, same as /auth/refresh).
+    """
+    presented = (
+        body.refresh_token if body is not None and body.refresh_token else None
+    ) or request.cookies.get(settings.refresh_cookie_name)
+    if presented:
+        try:
+            payload = jwt.decode(
+                presented, settings.jwt_secret, algorithms=[settings.jwt_algorithm]
+            )
+            if payload.get("type") == "refresh" and payload.get("sub") and payload.get("jti"):
+                await _revoke_refresh(session, user_id=str(payload["sub"]), payload=payload)
+        except JWTError:
+            pass  # invalid/expired token: nothing left to revoke
+    _clear_refresh_cookie(response)
 
 
 @router.get("/me", response_model=UserOut)

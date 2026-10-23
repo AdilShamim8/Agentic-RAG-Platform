@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChatInput } from "@/components/ChatInput";
 import { ChatMessage } from "@/components/ChatMessage";
 import { CitationList } from "@/components/CitationList";
-import { getAccessToken, logout } from "@/lib/auth";
+import { getAccessToken, logout, refreshAccessToken } from "@/lib/auth";
 
 interface Citation {
   chunk_id: string;
@@ -40,38 +40,58 @@ export default function HomePage() {
   const [error, setError] = useState<QueryError | null>(null);
   const conversationIdRef = useRef<string | null>(null);
 
-  // Auth gate: bounce to /login when there is no token.
+  // Auth gate: try a silent refresh (the HttpOnly cookie may still hold a
+  // valid session, e.g. after a tab restore); only then bounce to /login.
   useEffect(() => {
+    let cancelled = false;
     if (!getAccessToken()) {
-      router.replace("/login");
+      refreshAccessToken().then((token) => {
+        if (!cancelled && !token) router.replace("/login");
+      });
     }
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   const handleSend = useCallback(
     async (text: string) => {
-      const token = getAccessToken();
-      if (!token) {
-        router.replace("/login");
-        return;
-      }
       setError(null);
       const userMsg: Message = { id: crypto.randomUUID(), role: "user", content: text };
       setMessages((prev) => [...prev, userMsg]);
       setLoading(true);
 
       try {
-        const res = await fetch("/api/query", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            // THE fix: the bearer token was never attached before.
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            query: text,
-            ...(conversationIdRef.current ? { conversation_id: conversationIdRef.current } : {}),
-          }),
-        });
+        const doFetch = (token: string) =>
+          fetch("/api/query", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              query: text,
+              ...(conversationIdRef.current ? { conversation_id: conversationIdRef.current } : {}),
+            }),
+          });
+
+        let token = getAccessToken();
+        if (!token) {
+          router.replace("/login");
+          return;
+        }
+        let res = await doFetch(token);
+
+        if (res.status === 401) {
+          // Access token expired (or revoked): one silent refresh, one retry.
+          const refreshed = await refreshAccessToken();
+          if (!refreshed) {
+            logout();
+            router.replace("/login");
+            return;
+          }
+          res = await doFetch(refreshed);
+        }
 
         if (res.status === 401 || res.status === 403) {
           logout();
@@ -118,8 +138,9 @@ export default function HomePage() {
     [router]
   );
 
-  function handleLogout() {
-    logout();
+  async function handleLogout() {
+    // Revokes the refresh token server-side and clears the HttpOnly cookie.
+    await logout();
     router.replace("/login");
   }
 

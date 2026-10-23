@@ -49,6 +49,11 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 60
     jwt_refresh_token_expire_days: int = 7
+    # Refresh-token cookie. Secure=False only for plain-http local dev;
+    # MUST be True in any TLS-terminating deployment.
+    refresh_cookie_name: str = "rag_refresh"
+    refresh_cookie_secure: bool = False
+    refresh_cookie_samesite: str = "lax"
 
     # Observability
     otel_exporter_otlp_endpoint: str = ""
