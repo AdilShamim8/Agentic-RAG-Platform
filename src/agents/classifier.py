@@ -14,6 +14,7 @@ class QueryClass(StrEnum):
     TEMPORAL = "temporal"
     MULTI_HOP = "multi_hop"
     ANALYTICAL = "analytical"
+    AMBIGUOUS = "ambiguous"
     UNSUPPORTED = "unsupported"
 
 
@@ -30,6 +31,9 @@ CLASSIFIER_PROMPT = """You are a query classifier. Given a user query, return on
 - temporal: asking about changes over time (e.g. "What changed in Q2?")
 - multi_hop: requires multiple retrieval steps (e.g. "Summarize risks for project X in Q2")
 - analytical: requires synthesis across multiple sources (e.g. "What are the trends?")
+- ambiguous: too vague to retrieve effectively - it names no specific topic,
+  entity, or time frame (e.g. "Tell me about the policy.", "What about it?").
+  Retrieval would be a guess; the right move is to ask the user for specifics.
 - unsupported: not answerable from organizational documents (e.g. "What's the weather?")
 
 Return JSON: {{"class": "<one of above>", "confidence": <0..1>, "rationale": "<one sentence>"}}

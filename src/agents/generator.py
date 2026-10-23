@@ -14,6 +14,15 @@ from src.retrieval.types import ScoredChunk
 
 ABSTENTION_ANSWER = "I don't have enough evidence to answer this confidently."
 
+# Sent when the query is too vague to retrieve effectively (QueryClass.AMBIGUOUS).
+# The agent asks for specifics instead of guessing at a retrieval.
+CLARIFICATION_ANSWER = (
+    "Could you clarify what you would like to know? Your question is too "
+    "broad for me to pick the right document - for example, mention the "
+    "policy area (remote work, PTO, travel, parental leave), a project "
+    "name, or a time frame, and I will look it up."
+)
+
 
 @dataclass
 class GenerationResult:

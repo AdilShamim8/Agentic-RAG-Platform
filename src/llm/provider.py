@@ -168,9 +168,73 @@ class _MockLLMProvider(BaseLLMProvider):
     ) -> LLMResponse:
         prompt_lower = prompt.lower()
         if "query classifier" in prompt_lower:
-            text = json.dumps(
-                {"class": "simple_factual", "confidence": 1.0, "rationale": "Factual query"}
-            )
+            # Deterministic ambiguity rule mirroring the prompt's guidance:
+            # a query with no question word and at most ONE significant term
+            # (e.g. "Tell me about the policy.") is too vague to retrieve.
+            import re as _re0
+
+            qm = _re0.search(r"Query:\s*(.+?)\s*$", prompt, _re0.MULTILINE)
+            query = qm.group(1).strip().rstrip("?.!") if qm else ""
+            q_words = {
+                "what",
+                "how",
+                "who",
+                "when",
+                "which",
+                "where",
+                "why",
+                "is",
+                "are",
+                "does",
+                "do",
+                "did",
+                "was",
+                "were",
+                "can",
+            }
+            vague_stop = {
+                "the",
+                "a",
+                "an",
+                "of",
+                "in",
+                "to",
+                "for",
+                "and",
+                "with",
+                "by",
+                "on",
+                "at",
+                "our",
+                "we",
+                "me",
+                "about",
+                "it",
+                "is",
+                "are",
+                "tell",
+                "show",
+                "please",
+                "this",
+                "that",
+            }
+            terms = [t for t in _re0.findall(r"[a-z0-9-]+", query.lower()) if t not in vague_stop]
+            has_question_word = any(t in q_words for t in _re0.findall(r"[a-z-]+", query.lower()))
+            # Identifier-like tokens (codes with digits, e.g. POL-2024-007,
+            # CS-101) are maximally specific - never ambiguous.
+            has_identifier = any(_re0.search(r"\d", t) for t in terms)
+            if terms and len(terms) <= 1 and not has_question_word and not has_identifier:
+                text = json.dumps(
+                    {
+                        "class": "ambiguous",
+                        "confidence": 0.9,
+                        "rationale": "Too vague: no specific topic, entity, or time frame",
+                    }
+                )
+            else:
+                text = json.dumps(
+                    {"class": "simple_factual", "confidence": 1.0, "rationale": "Factual query"}
+                )
         elif "planner" in prompt_lower:
             # Query-driven deterministic plan: search_documents with the
             # actual query as sub_question (a fixed plan would make every
@@ -189,6 +253,38 @@ class _MockLLMProvider(BaseLLMProvider):
                         }
                     ],
                     "rationale": "Search relevant documents",
+                }
+            )
+        elif "source conflict detector" in prompt_lower:
+            # Deterministic mock judge: run the number-and-unit heuristic over
+            # the passages embedded in the prompt (chunk ids in brackets).
+            import re as _rec
+
+            from src.agents.conflict_detector import heuristic_conflicts
+            from src.retrieval.types import ScoredChunk
+
+            passages = _rec.findall(
+                r"- \[chunk_id=([^\s]+) document_id=([^\s]+) "
+                r"document_title=([^\]]+)\]\n(.+?)(?=\n\n- \[|$)",
+                prompt,
+                _rec.DOTALL,
+            )
+            chunks = [
+                ScoredChunk(
+                    chunk_id=cid,
+                    document_id=did,
+                    document_title=title.strip(),
+                    content=body.strip(),
+                    score=1.0,
+                )
+                for cid, did, title, body in passages
+            ]
+            conflicts = heuristic_conflicts(chunks)
+            text = json.dumps(
+                {
+                    "conflicts": [
+                        {"a": c.a_chunk_id, "b": c.b_chunk_id, "topic": c.topic} for c in conflicts
+                    ]
                 }
             )
         elif "evidence sufficiency" in prompt_lower:

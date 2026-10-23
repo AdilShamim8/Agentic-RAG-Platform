@@ -182,6 +182,9 @@ def _auth_user(role: str):
 
 def _behavior_of(result) -> str:
     """Map an agent result to an observed behavior label."""
+    from src.agents.conflict_detector import CONFLICT_ANSWER_PREFIX
+    from src.agents.generator import CLARIFICATION_ANSWER
+
     failure = getattr(result, "failure", None)
     failure = failure.value if hasattr(failure, "value") else failure
     answer = getattr(result, "answer", "") or ""
@@ -189,6 +192,10 @@ def _behavior_of(result) -> str:
         return "refuse"
     if failure == "insufficient_evidence" or answer.strip() == ABSTENTION_TEXT:
         return "abstain"
+    if answer.strip() == CLARIFICATION_ANSWER:
+        return "clarify"
+    if answer.strip().startswith(CONFLICT_ANSWER_PREFIX):
+        return "report_conflict"
     if failure in ("citation_mismatch", "hallucination_detected"):
         return "withheld"
     if failure is None:
@@ -210,9 +217,15 @@ def _pattern_hit(answer: str, pattern: str) -> bool | None:
 def _behavior_compliant(expected: str, observed: str) -> tuple[bool | None, str]:
     """Returns (compliant, reason). None = unscoreable."""
     if expected == "clarify":
-        return None, "clarify behavior is not implemented; row unscored for behavior"
+        return (
+            observed == "clarify",
+            "too-vague queries must ask for specifics instead of guessing",
+        )
     if expected == "report_conflict":
-        return None, "conflict-reporting behavior not implemented; row unscored"
+        return (
+            observed == "report_conflict",
+            "conflicting sources must be reported, not silently resolved",
+        )
     if expected == "use_current_version":
         return observed == "answer", "expected the current version to be used for an answer"
     if expected == "refuse_or_translate_safely":

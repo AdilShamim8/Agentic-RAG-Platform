@@ -28,11 +28,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from apps.api.app.deps.auth import AuthUser
 from src.agents.citation_validator import validate_citations
 from src.agents.classifier import QueryClass, classify_query
+from src.agents.conflict_detector import build_conflict_answer, detect_conflicts
 from src.agents.evidence_validator import check_evidence_sufficiency
-from src.agents.generator import ABSTENTION_ANSWER, generate_answer
+from src.agents.generator import ABSTENTION_ANSWER, CLARIFICATION_ANSWER, generate_answer
 from src.agents.planner import plan
 from src.agents.state import AgentState, AgentStateName
 from src.agents.tools import execute_tool
+from src.citations.types import CitationResult
 from src.core.failures import Failure, user_message
 from src.llm.provider import get_llm_provider
 from src.observability.tracing import traced_operation
@@ -97,6 +99,13 @@ async def _run_loop(
     if classification.query_class == QueryClass.UNSUPPORTED:
         state.answer = "I don't have enough evidence to answer this confidently."
         state.failure = Failure.INSUFFICIENT_EVIDENCE
+        state.current_state = AgentStateName.END
+        return
+
+    # 1a. Too vague to retrieve: ask for specifics instead of guessing at a
+    #     retrieval (clarify behavior; failure=None - this is a healthy turn).
+    if classification.query_class == QueryClass.AMBIGUOUS:
+        state.answer = CLARIFICATION_ANSWER
         state.current_state = AgentStateName.END
         return
 
@@ -168,7 +177,6 @@ async def _run_loop(
 
         if sufficient:
             break
-
         # 5. Insufficient evidence: bounded replan with feedback
         if state.replans < state.max_replans and state.can_continue():
             state.replans += 1
@@ -181,6 +189,34 @@ async def _run_loop(
 
         state.answer = "I don't have enough evidence to answer this confidently."
         state.failure = Failure.INSUFFICIENT_EVIDENCE
+        state.current_state = AgentStateName.END
+        return
+
+    # 5b. Cross-source conflict check on the top evidence: never silently
+    #     pick one side when two current documents disagree.
+    async with traced_operation("agent.conflict_check", trace_id=state.trace_id):
+        conflicts = await detect_conflicts(state.query, state.retrieved_chunks, llm)
+    if conflicts:
+        chunk_by_id = {c.chunk_id: c for c in state.retrieved_chunks}
+        state.answer = build_conflict_answer(conflicts, chunk_by_id)
+        state.citations = [
+            CitationResult(
+                chunk_id=c.chunk_id,
+                document_id=c.document_id,
+                document_title=c.document_title,
+                page=c.page,
+                section=c.section,
+                url=c.url,
+                snippet=c.content[:300],
+                verified=True,  # direct quotes of the conflicting passages
+            )
+            for conflict in conflicts
+            for c in (
+                chunk_by_id.get(conflict.a_chunk_id),
+                chunk_by_id.get(conflict.b_chunk_id),
+            )
+            if c is not None
+        ]
         state.current_state = AgentStateName.END
         return
 

@@ -1,21 +1,21 @@
 # Evaluation Comparison
 
-Generated from 1 report(s) in `evals/reports/` (latest report per baseline wins).
+Generated from 3 report(s) in `evals/reports/` (latest report per baseline wins).
 
 - Provider mode: **mock**
-- Fixture corpus: `evals/datasets/corpus_fixtures.jsonl` (sha256 cb14c3c89a19d022)
+- Fixture corpus: `evals/datasets/corpus_fixtures.jsonl` (sha256 3ba617e36d8161b6)
 - Deterministic metrics only; LLM-judge rubric scores require a real provider and are NOT included here (see docs/reviews/llm_judge_methodology.md).
 
 ## Baseline summary
 
 | Baseline | Behavior compliance | Pattern faithfulness | Recall@k | MRR | Source hit rate | Verified citation rate | Unexpected failures | p95 latency (ms) |
 |----------|--------------------:|--------------------:|---------:|----:|---------------:|----------------------:|---------------------:|----------------:|
-| baseline_1_naive | 0.857 | 0.657 | 0.886 | 0.857 | 0.886 | 1.000 | 0.143 | 2 |
-| baseline_2_dense | 0.857 | 0.657 | 0.886 | 0.857 | 0.886 | 1.000 | 0.143 | 2 |
-| baseline_3_lexical | 0.592 | 0.400 | 0.486 | 0.486 | 0.486 | 1.000 | 0.408 | 1 |
-| baseline_4_hybrid | 0.898 | 0.686 | 0.943 | 0.900 | 0.943 | 1.000 | 0.102 | 2 |
-| baseline_5_hybrid_reranked | 0.898 | 0.686 | 0.943 | 0.900 | 0.943 | 1.000 | 0.102 | 2 |
-| baseline_6_agentic | 0.959 | 0.686 | 0.857 | 0.857 | 0.857 | 1.000 | 0.041 | 4 |
+| baseline_1_naive | 0.840 | 0.657 | 0.886 | 0.857 | 0.886 | 1.000 | 0.140 | 2 |
+| baseline_2_dense | 0.840 | 0.657 | 0.886 | 0.857 | 0.886 | 1.000 | 0.140 | 1 |
+| baseline_3_lexical | 0.580 | 0.400 | 0.486 | 0.486 | 0.486 | 1.000 | 0.420 | 1 |
+| baseline_4_hybrid | 0.880 | 0.686 | 0.943 | 0.900 | 0.943 | 1.000 | 0.100 | 2 |
+| baseline_5_hybrid_reranked | 0.880 | 0.686 | 0.943 | 0.900 | 0.943 | 1.000 | 0.100 | 2 |
+| baseline_6_agentic | 0.960 | 0.686 | 0.857 | 0.857 | 0.857 | 1.000 | 0.040 | 4 |
 
 ## Metric definitions
 
