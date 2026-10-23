@@ -22,14 +22,13 @@ Security:
 - Uniform 401 message for unknown email and wrong password (no user
   enumeration), with a dummy bcrypt verify when the user is missing so
   response timing stays comparable.
-- In-memory sliding-window rate limit on failed logins (5 per 5 minutes
-  per client+identifier; single-process only - use Redis in production
-  multi-worker deployments).
+- Sliding-window rate limit on failed logins (5 per 5 minutes per
+  client+identifier). Redis-backed when Redis is reachable (multi-worker
+  safe); falls back to per-process in-memory limiting otherwise.
 """
 
 from __future__ import annotations
 
-import time
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
@@ -43,6 +42,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.app.core.config import settings
 from apps.api.app.core.db import get_session
+from apps.api.app.core.rate_limit import get_login_limiter
 from apps.api.app.models.audit import AuditLog
 from apps.api.app.models.refresh_token import RevokedRefreshToken
 from apps.api.app.models.user import User
@@ -82,57 +82,16 @@ class UserOut(BaseModel):
     role: str
 
 
-# --- Login rate limiting (in-memory, single process) -------------------------
-
-_MAX_FAILED_ATTEMPTS = 5
-_WINDOW_SECONDS = 300.0
-
-
-class LoginRateLimiter:
-    """Sliding-window limiter over (client_key, identifier) failed attempts."""
-
-    def __init__(self) -> None:
-        self._failures: dict[tuple[str, str], list[float]] = {}
-        self._blocked_until: dict[tuple[str, str], float] = {}
-
-    def _prune(self, key: tuple[str, str], now: float) -> list[float]:
-        bucket = self._failures.get(key, [])
-        cutoff = now - _WINDOW_SECONDS
-        kept = [t for t in bucket if t > cutoff]
-        self._failures[key] = kept
-        return kept
-
-    def is_blocked(self, client_key: str, identifier: str, now: float | None = None) -> bool:
-        now = time.monotonic() if now is None else now
-        key = (client_key, identifier)
-        until = self._blocked_until.get(key, 0.0)
-        if until > now:
-            return True
-        if until and until <= now:
-            self._blocked_until.pop(key, None)
-        return len(self._prune(key, now)) >= _MAX_FAILED_ATTEMPTS
-
-    def record_failure(self, client_key: str, identifier: str, now: float | None = None) -> None:
-        now = time.monotonic() if now is None else now
-        key = (client_key, identifier)
-        kept = self._prune(key, now)
-        kept.append(now)
-        self._failures[key] = kept
-        if len(kept) >= _MAX_FAILED_ATTEMPTS:
-            self._blocked_until[key] = now + _WINDOW_SECONDS
-
-    def reset(self) -> None:
-        self._failures.clear()
-        self._blocked_until.clear()
-
-
-rate_limiter = LoginRateLimiter()
+# --- Login rate limiting ------------------------------------------------------
+# Backend lives in core.rate_limit (Redis when available, in-memory fallback);
+# thresholds come from settings (RATE_LIMIT_MAX_FAILURES /
+# RATE_LIMIT_WINDOW_SECONDS).
 
 
 def _client_key(request: Request) -> str:
     # Best-effort client identifier; behind a proxy this is the proxy IP
     # (documented limitation - real deployments should pass X-Forwarded-For
-    # from a trusted proxy and use Redis-backed limiting).
+    # from a trusted proxy).
     return request.client.host if request.client else "unknown"
 
 
@@ -298,16 +257,17 @@ async def login(
             )
 
     client_key = _client_key(request)
-    if rate_limiter.is_blocked(client_key, identifier):
+    limiter = await get_login_limiter()
+    if await limiter.is_blocked(client_key, identifier):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many failed login attempts. Try again later.",
-            headers={"Retry-After": str(int(_WINDOW_SECONDS))},
+            headers={"Retry-After": str(int(settings.rate_limit_window_seconds))},
         )
 
     user = await authenticate_user(session, identifier, password)
     if user is None:
-        rate_limiter.record_failure(client_key, identifier)
+        await limiter.record_failure(client_key, identifier)
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
     refresh = _create_token(

@@ -64,7 +64,8 @@ async def test_admin_detailed_health_honest() -> None:
     assert response.status_code == 200
     body = response.json()
     assert "db_pool" in body and "status" in body["db_pool"]
-    assert body["redis"]["status"] == "not wired"  # honest, not fabricated
+    assert body["redis"]["status"] in ("memory", "redis")  # resolved limiter backend
+    assert body["redis"]["used_for"] == "login_rate_limiting"
     assert isinstance(body["embedder"]["loaded"], bool)
     assert isinstance(body["reranker"]["loaded"], bool)
     assert "configured" in body["langfuse"]

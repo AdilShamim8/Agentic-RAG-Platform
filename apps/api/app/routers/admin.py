@@ -78,12 +78,18 @@ async def detailed_health(
     pool = engine.pool
     pool_status = pool.status() if hasattr(pool, "status") else "unknown"
 
+    from apps.api.app.core.rate_limit import current_limiter_backend
     from src.reranking.base import _reranker
     from src.retrieval.embedders import _embedder
 
     return {
         "db_pool": {"status": pool_status},
-        "redis": {"status": "not wired"},  # no Redis client in the codebase yet
+        "redis": {
+            # First real Redis consumer; more (caches, queues) to follow.
+            "status": current_limiter_backend(),
+            "used_for": "login_rate_limiting",
+            "url_configured": bool(settings.redis_url),
+        },
         "embedder": {
             "model": settings.embedding_model,
             "loaded": _embedder is not None,

@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     redis_embedding_ttl: int = 86400
     redis_query_ttl: int = 300
 
+    # Login rate limiting (backend selection: auto | redis | memory)
+    rate_limit_backend: str = "auto"
+    rate_limit_max_failures: int = 5
+    rate_limit_window_seconds: float = 300.0
+
     # LLM providers
     openai_api_key: str = ""
     openai_default_model: str = "gpt-4o-mini"

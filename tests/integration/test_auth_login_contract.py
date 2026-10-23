@@ -10,15 +10,17 @@ from __future__ import annotations
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from apps.api.app.core.config import settings
+from apps.api.app.core.rate_limit import get_login_limiter
 from apps.api.app.main import app
-from apps.api.app.routers.auth import rate_limiter
 
 
 @pytest.fixture(autouse=True)
-def _reset_limiter():
-    rate_limiter.reset()
+async def _reset_limiter():
+    limiter = await get_login_limiter()
+    await limiter.reset()
     yield
-    rate_limiter.reset()
+    await limiter.reset()
 
 
 async def _login(client: AsyncClient, **kwargs):
@@ -121,14 +123,12 @@ async def test_login_rate_limit_after_repeated_failures() -> None:
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_rate_limit_recovers_after_window(monkeypatch: pytest.MonkeyPatch) -> None:
-    from apps.api.app.routers.auth import _WINDOW_SECONDS
-
     clock = {"now": 1000.0}
 
     def fake_monotonic() -> float:
         return clock["now"]
 
-    monkeypatch.setattr("apps.api.app.routers.auth.time.monotonic", fake_monotonic)
+    monkeypatch.setattr("apps.api.app.core.rate_limit.time.monotonic", fake_monotonic)
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         for _ in range(5):
@@ -137,7 +137,7 @@ async def test_rate_limit_recovers_after_window(monkeypatch: pytest.MonkeyPatch)
         blocked = await _login(client, json={"email": "carol@demo.dev", "password": "password123"})
         assert blocked.status_code == 429
 
-        clock["now"] += _WINDOW_SECONDS + 1
+        clock["now"] += settings.rate_limit_window_seconds + 1
         recovered = await _login(
             client, json={"email": "carol@demo.dev", "password": "password123"}
         )
