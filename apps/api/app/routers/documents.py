@@ -5,33 +5,13 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.app.core.db import get_session
 from apps.api.app.deps.auth import AuthUser, get_auth_user, require_permission
+from apps.api.app.schemas import DocumentDetail, DocumentOut
 
 router = APIRouter()
-
-
-class DocumentOut(BaseModel):
-    id: str
-    title: str
-    doc_type: str
-    department: str | None
-    owner_id: str | None
-    version: int
-    content_hash: str
-    created_at: str
-    updated_at: str
-
-
-class DocumentDetail(DocumentOut):
-    access_policy: dict
-    effective_from: str | None
-    effective_to: str | None
-    source: str
-    chunk_count: int
 
 
 from apps.api.app.services.document_service import (  # noqa: E402

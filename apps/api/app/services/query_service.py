@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.app.deps.auth import AuthUser
 from apps.api.app.models.conversation import Message
-from apps.api.app.routers.query import Citation, QueryResponse
+from apps.api.app.schemas import Citation, QueryResponse
 from src.agents.orchestrator import run_agent
 from src.citations.types import CitationResult
 from src.core.failures import Failure

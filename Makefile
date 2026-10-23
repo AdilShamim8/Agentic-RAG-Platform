@@ -107,32 +107,35 @@ test-regression: ## Run regression tests (golden dataset, RBAC, agent terminatio
 # Evaluation
 # -----------------------------------------------------------------------------
 
-eval: ## Run full evaluation on the golden dataset
-	$(PYTHON) -m evals.run --dataset evals/datasets/golden.jsonl --all-baselines
+seed-fixtures: ## Seed the synthetic evaluation fixture corpus (idempotent)
+	$(PYTHON) -m scripts.seed_fixtures
 
-eval-smoke: ## Run 10-item smoke eval (used in CI)
-	$(PYTHON) -m evals.run --dataset evals/datasets/golden_smoke.jsonl --baselines baseline_5_hybrid_reranked
+eval: ## Run full evaluation on the golden dataset (all baselines)
+	$(PYTHON) -m evals.run --dataset evals/datasets/golden.jsonl --baselines all
+
+eval-smoke: ## Run 10-item smoke eval (used in CI) with the agentic baseline
+	$(PYTHON) -m evals.run --dataset evals/datasets/golden_smoke.jsonl --baselines baseline_6_agentic
 
 eval-compare: ## Generate evals/reports/comparison.md across all baselines
 	$(PYTHON) -m evals.compare --reports-dir evals/reports/
 
 eval-baseline-1: ## Run baseline 1 (naive RAG)
-	$(PYTHON) -m evals.run --baseline evals/baselines/baseline_1_naive.json
+	$(PYTHON) -m evals.run --baselines baseline_1_naive
 
 eval-baseline-2: ## Run baseline 2 (dense only)
-	$(PYTHON) -m evals.run --baseline evals/baselines/baseline_2_dense.json
+	$(PYTHON) -m evals.run --baselines baseline_2_dense
 
 eval-baseline-3: ## Run baseline 3 (lexical only)
-	$(PYTHON) -m evals.run --baseline evals/baselines/baseline_3_lexical.json
+	$(PYTHON) -m evals.run --baselines baseline_3_lexical
 
 eval-baseline-4: ## Run baseline 4 (hybrid)
-	$(PYTHON) -m evals.run --baseline evals/baselines/baseline_4_hybrid.json
+	$(PYTHON) -m evals.run --baselines baseline_4_hybrid
 
 eval-baseline-5: ## Run baseline 5 (hybrid + rerank)
-	$(PYTHON) -m evals.run --baseline evals/baselines/baseline_5_hybrid_reranked.json
+	$(PYTHON) -m evals.run --baselines baseline_5_hybrid_reranked
 
 eval-baseline-6: ## Run baseline 6 (agentic)
-	$(PYTHON) -m evals.run --baseline evals/baselines/baseline_6_agentic.json
+	$(PYTHON) -m evals.run --baselines baseline_6_agentic
 
 # -----------------------------------------------------------------------------
 # Code quality

@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
 
 from fastapi import HTTPException, UploadFile
 from sqlalchemy import func, select, text
@@ -25,6 +24,7 @@ from apps.api.app.core.config import settings
 from apps.api.app.deps.auth import AuthUser
 from apps.api.app.models.audit import AuditLog
 from apps.api.app.models.document import Document, DocumentChunk, DocumentVersion, Source
+from apps.api.app.schemas import DocumentDetail, DocumentOut
 from src.ingestion.chunking import get_chunker
 from src.ingestion.cleaning import clean
 from src.ingestion.fetchers import RawDocument
@@ -33,9 +33,6 @@ from src.ingestion.metadata import content_hash, extract_title
 from src.ingestion.parsers import get_parser
 from src.ingestion.versioning import create_version_record
 from src.security.access import can_access
-
-if TYPE_CHECKING:
-    from apps.api.app.routers.documents import DocumentDetail, DocumentOut
 
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20 MB
 ALLOWED_EXTENSIONS = {"md", "txt", "pdf", "docx", "html", "htm"}
@@ -102,8 +99,6 @@ async def list_documents(
             "offset": offset,
         },
     )
-    from apps.api.app.routers.documents import DocumentOut  # local import: avoid cycle
-
     out: list[DocumentOut] = []
     for r in result.mappings():
         out.append(
@@ -226,8 +221,6 @@ async def get_document(
         src = await session.get(Source, doc.source_id)
         source_name = src.name if src is not None else "unknown"
 
-    from apps.api.app.routers.documents import DocumentDetail  # local import: avoid cycle
-
     return DocumentDetail(
         id=str(doc.id),
         title=doc.title,
@@ -284,8 +277,6 @@ async def soft_delete_document(*, document_id: str, user: AuthUser, session: Asy
 
 
 def _to_out(doc: Document) -> DocumentOut:
-    from apps.api.app.routers.documents import DocumentOut  # local import: avoid cycle
-
     return DocumentOut(
         id=str(doc.id),
         title=doc.title,

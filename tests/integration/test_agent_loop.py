@@ -62,8 +62,8 @@ def _employee(user_id: str = "00000000-0000-0000-0000-000000000001") -> AuthUser
 @pytest.fixture()
 async def policy_doc():
     seeded = await seed_doc(
-        title="Remote Work Policy",
-        content="Employees may work remotely up to 3 days per week under the current policy.",
+        title="Airship Maintenance Policy",
+        content="Airship fleet maintenance: the fleet is serviced every 42 days under the maintenance policy.",
     )
     try:
         yield seeded
@@ -82,14 +82,14 @@ async def test_happy_path_full_stack(policy_doc, monkeypatch: pytest.MonkeyPatch
         token = login.json()["access_token"]
         response = await client.post(
             "/query",
-            json={"query": "What is our remote work policy?"},
+            json={"query": "How often is the airship fleet serviced?"},
             headers={"Authorization": f"Bearer {token}"},
         )
 
     assert response.status_code == 200
     body = response.json()
     assert body["failure"] is None, f"unexpected failure: {body['failure']}"
-    assert "3 days" in body["answer"]
+    assert "42 days" in body["answer"]
     assert body["citations"], "expected at least one citation"
     assert body["citations"][0]["verified"] is True
     assert body["citations"][0]["document_id"] == policy_doc.document_id
@@ -114,7 +114,7 @@ async def test_replan_used_when_evidence_insufficient(
 
     async with session_scope() as session:
         result = await run_agent(
-            query="What is our remote work policy?",
+            query="How often is the airship fleet serviced?",
             user=_employee(),
             session=session,
             conversation_id=None,
@@ -130,7 +130,7 @@ async def test_replan_used_when_evidence_insufficient(
     assert len(planner_prompts) >= 2, "expected a re-planning round"
     # The replan planner prompt must carry the feedback block
     assert any("FEEDBACK" in p for p in planner_prompts), "replan prompt lacks feedback"
-    assert "3 days" in result.answer
+    assert "42 days" in result.answer
 
 
 @pytest.mark.integration
@@ -142,7 +142,7 @@ async def test_replan_exhaustion_abstains(policy_doc, monkeypatch: pytest.Monkey
 
     async with session_scope() as session:
         result = await run_agent(
-            query="What is our remote work policy?",
+            query="How often is the airship fleet serviced?",
             user=_employee(),
             session=session,
             conversation_id=None,
@@ -190,12 +190,12 @@ async def test_per_step_failure_does_not_abort_query(
                 {
                     "steps": [
                         {
-                            "sub_question": "remote work policy",
+                            "sub_question": "How often is the airship fleet serviced?",
                             "tool": "search_by_date",
                             "tool_args": {"date_from": "not-a-date"},  # raises inside tool
                         },
                         {
-                            "sub_question": "remote work policy",
+                            "sub_question": "How often is the airship fleet serviced?",
                             "tool": "search_documents",
                             "tool_args": {},
                         },
@@ -209,7 +209,7 @@ async def test_per_step_failure_does_not_abort_query(
 
     async with session_scope() as session:
         result = await run_agent(
-            query="What is our remote work policy?",
+            query="How often is the airship fleet serviced?",
             user=_employee(),
             session=session,
             conversation_id=None,
@@ -219,7 +219,7 @@ async def test_per_step_failure_does_not_abort_query(
         )
 
     assert result.failure is None, f"one bad step must not kill the query: {result.failure}"
-    assert "3 days" in result.answer
+    assert "42 days" in result.answer
 
 
 @pytest.mark.integration
@@ -252,7 +252,7 @@ async def test_all_steps_failing_yields_tool_failure(
 
     async with session_scope() as session:
         result = await run_agent(
-            query="What is our remote work policy?",
+            query="How often is the airship fleet serviced?",
             user=_employee(),
             session=session,
             conversation_id=None,
@@ -277,7 +277,7 @@ async def test_unknown_tool_steps_dropped_plan_still_valid(
                     "steps": [
                         {"sub_question": "x", "tool": "web_search", "tool_args": {}},
                         {
-                            "sub_question": "remote work policy",
+                            "sub_question": "How often is the airship fleet serviced?",
                             "tool": "search_documents",
                             "tool_args": {},
                         },
@@ -291,7 +291,7 @@ async def test_unknown_tool_steps_dropped_plan_still_valid(
 
     async with session_scope() as session:
         result = await run_agent(
-            query="What is our remote work policy?",
+            query="How often is the airship fleet serviced?",
             user=_employee(),
             session=session,
             conversation_id=None,
@@ -301,7 +301,7 @@ async def test_unknown_tool_steps_dropped_plan_still_valid(
         )
 
     assert result.failure is None
-    assert "3 days" in result.answer
+    assert "42 days" in result.answer
 
 
 @pytest.mark.integration
@@ -352,7 +352,7 @@ async def test_get_document_versions_tool_real_data(policy_doc) -> None:
         assert result.metadata["versions"], "expected the real version row"
         assert result.metadata["versions"][0]["version"] == 1
         assert result.chunks, "expected a synthetic evidence chunk"
-        assert "Remote Work Policy" in result.chunks[0].content
+        assert "Airship Maintenance Policy" in result.chunks[0].content
 
     # Restrict the doc; an employee must get PermissionError
     async with session_scope() as s2:
@@ -412,7 +412,7 @@ async def test_benign_query_not_blocked_by_injection_screen(policy_doc) -> None:
 
     async with session_scope() as session:
         result = await run_agent(
-            query="What is our remote work policy?",
+            query="How often is the airship fleet serviced?",
             user=_employee(),
             session=session,
             conversation_id=None,
@@ -421,4 +421,4 @@ async def test_benign_query_not_blocked_by_injection_screen(policy_doc) -> None:
             trace_id="test-benign-screen",
         )
     assert result.failure is None
-    assert "3 days" in result.answer
+    assert "42 days" in result.answer

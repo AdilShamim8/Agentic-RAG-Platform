@@ -6,41 +6,13 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.app.core.db import get_session
 from apps.api.app.deps.auth import AuthUser, get_auth_user
+from apps.api.app.schemas import QueryRequest, QueryResponse
 
 router = APIRouter()
-
-
-class Citation(BaseModel):
-    chunk_id: str
-    document_id: str
-    document_title: str
-    page: int | None = None
-    section: str | None = None
-    url: str | None = None
-    snippet: str = Field(..., description="The text span from the chunk that supports the claim")
-    verified: bool
-
-
-class QueryRequest(BaseModel):
-    query: str = Field(..., min_length=1, max_length=5000)
-    conversation_id: str | None = None
-    retrieval_strategy: str = "hybrid_reranked"  # dense | lexical | hybrid | hybrid_reranked
-    top_k: int | None = None
-
-
-class QueryResponse(BaseModel):
-    answer: str
-    citations: list[Citation]
-    trace_id: str
-    conversation_id: str
-    confidence: str  # low | medium | high
-    failure: str | None = None
-    metadata: dict = Field(default_factory=dict)
 
 
 from apps.api.app.services.query_service import run_agentic_query  # noqa: E402

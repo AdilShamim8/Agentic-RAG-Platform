@@ -8,7 +8,7 @@ import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.app.deps.auth import AuthUser
-from apps.api.app.routers.search import ScoredChunk, SearchResponse
+from apps.api.app.schemas import ScoredChunk, SearchResponse
 from src.observability.tracing import traced_operation
 from src.retrieval.engine import retrieve
 

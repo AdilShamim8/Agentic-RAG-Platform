@@ -54,8 +54,8 @@ def _employee() -> AuthUser:
 @pytest.fixture()
 async def policy_doc():
     seeded = await seed_doc(
-        title="Remote Work Policy",
-        content="Employees may work remotely up to 3 days per week under the current policy.",
+        title="Airship Maintenance Policy",
+        content="Airship fleet maintenance: the fleet is serviced every 42 days under the maintenance policy.",
     )
     try:
         yield seeded
@@ -67,7 +67,7 @@ async def _run(monkeypatch, llm) -> object:
     monkeypatch.setattr("src.agents.orchestrator.get_llm_provider", lambda: llm)
     async with session_scope() as session:
         return await run_agent(
-            query="What is our remote work policy?",
+            query="How often is the airship fleet serviced?",
             user=_employee(),
             session=session,
             conversation_id=None,
@@ -165,7 +165,7 @@ async def test_api_contract_for_citation_failures(policy_doc) -> None:
         token = login.json()["access_token"]
         response = await client.post(
             "/query",
-            json={"query": "What is our remote work policy?"},
+            json={"query": "How often is the airship fleet serviced?"},
             headers={"Authorization": f"Bearer {token}"},
         )
     assert response.status_code == 200

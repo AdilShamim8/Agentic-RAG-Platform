@@ -42,15 +42,65 @@ class _HashedBagEmbedder:
 
     Selected by EMBEDDING_MODEL names starting with "test-" (e.g.
     "test-hashed-bag"), mirroring the sk-test mock LLM. It maps each
-    alphanumeric token to a stable dimension (sha1 of the token mod dim)
-    and produces L2-normalized count vectors, so cosine similarity
-    approximates vocabulary overlap. This lets the whole retrieval stack
-    (dense, hybrid, rerankers, evaluations) run with no network access,
-    no model downloads, and fully reproducible results.
+    token (after stop-word removal) to a stable dimension (sha1 of the
+    token mod dim) and produces L2-normalized sublinear count vectors
+    (1 + log(count)), so cosine similarity approximates vocabulary
+    overlap. Stop words are removed so short chunks do not win on
+    the/is/what dimensions. This lets the whole retrieval stack (dense,
+    hybrid, rerankers, evaluations) run with no network access, no model
+    downloads, and fully reproducible results.
 
     NOT a semantic embedder - never use for production. Outputs are
     documented as approximate in evaluation reports.
     """
+
+    STOP_WORDS = frozenset(
+        {
+            "the",
+            "a",
+            "an",
+            "of",
+            "is",
+            "are",
+            "was",
+            "were",
+            "our",
+            "we",
+            "what",
+            "how",
+            "does",
+            "do",
+            "did",
+            "in",
+            "to",
+            "for",
+            "and",
+            "with",
+            "by",
+            "on",
+            "at",
+            "or",
+            "vs",
+            "versus",
+            "between",
+            "tell",
+            "me",
+            "about",
+            "you",
+            "your",
+            "i",
+            "it",
+            "this",
+            "that",
+            "be",
+            "been",
+            "has",
+            "have",
+            "had",
+            "as",
+            "from",
+        }
+    )
 
     def __init__(self, model_name: str = "test-hashed-bag") -> None:
         import hashlib
@@ -65,11 +115,18 @@ class _HashedBagEmbedder:
         import math
 
         vec = [0.0] * self.dim
-        tokens = self._token_re.findall(text.lower())
+        tokens = [
+            t
+            for t in self._token_re.findall(text.lower())
+            if t not in self.STOP_WORDS and len(t) > 1
+        ]
+        counts: dict[int, float] = {}
         for token in tokens:
             digest = self._hashlib.sha1(token.encode("utf-8")).digest()
             idx = int.from_bytes(digest[:4], "big") % self.dim
-            vec[idx] += 1.0
+            counts[idx] = counts.get(idx, 0.0) + 1.0
+        for idx, count in counts.items():
+            vec[idx] = 1.0 + math.log(count) if count > 1 else 1.0
         norm = math.sqrt(sum(v * v for v in vec))
         if norm > 0:
             vec = [v / norm for v in vec]

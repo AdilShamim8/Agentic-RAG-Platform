@@ -37,11 +37,7 @@ jobs:
           python-version: "3.11"
           cache: "pip"
       - run: pip install -e ".[dev]"
-      - run: pytest tests/unit -v --cov=src --cov-report=xml
-      - uses: codecov/codecov-action@v4
-        with:
-          file: ./coverage.xml
-          fail_ci_if_error: false
+      - run: pytest tests/unit -v
 
   integration-tests:
     runs-on: ubuntu-latest
@@ -74,6 +70,8 @@ jobs:
       OPENAI_API_KEY: sk-test
       HF_TOKEN: hf_test
       APP_ENV: dev
+      EMBEDDING_MODEL: test-hashed-bag
+      RERANKER_MODEL: test-passthrough
       PYTHONPATH: .
     steps:
       - uses: actions/checkout@v4
@@ -109,6 +107,8 @@ jobs:
       OPENAI_API_KEY: sk-test
       HF_TOKEN: hf_test
       APP_ENV: dev
+      EMBEDDING_MODEL: test-hashed-bag
+      RERANKER_MODEL: test-passthrough
       PYTHONPATH: .
     steps:
       - uses: actions/checkout@v4
@@ -120,6 +120,44 @@ jobs:
       - run: alembic upgrade head
       - run: python -m scripts.seed
       - run: pytest tests/security -v
+
+  regression-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: rag
+          POSTGRES_PASSWORD: rag
+          POSTGRES_DB: rag
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U rag"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql+asyncpg://rag:rag@localhost:5432/rag
+      REDIS_URL: redis://localhost:6379/0
+      JWT_SECRET: test-secret-please-change-me-to-64-chars-aaaaaaaaaaaa
+      APP_SECRET_KEY: test-secret-please-change-me-to-64-chars-aaaaaaaaaaaa
+      OPENAI_API_KEY: sk-test
+      HF_TOKEN: hf_test
+      APP_ENV: dev
+      EMBEDDING_MODEL: test-hashed-bag
+      RERANKER_MODEL: test-passthrough
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - run: pip install -e ".[dev]"
+      - run: alembic upgrade head
+      - run: python -m scripts.seed
+      - run: python -m scripts.seed_fixtures
+      - run: pytest tests/regression -v
 
   eval-smoke:
     runs-on: ubuntu-latest
@@ -141,12 +179,14 @@ jobs:
       REDIS_URL: redis://localhost:6379/0
       JWT_SECRET: test-secret-please-change-me-to-64-chars-aaaaaaaaaaaa
       APP_SECRET_KEY: test-secret-please-change-me-to-64-chars-aaaaaaaaaaaa
+      # Real key optional: the runner falls back to the deterministic mock
+      # provider (recorded in the report) when the secret is absent.
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       HF_TOKEN: ${{ secrets.HF_TOKEN }}
       APP_ENV: dev
+      EMBEDDING_MODEL: test-hashed-bag
+      RERANKER_MODEL: test-passthrough
       PYTHONPATH: .
-      EVAL_FAITHFULNESS_MIN: "0.85"
-      EVAL_HALLUCINATION_RATE_MAX: "0.10"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -156,27 +196,46 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: alembic upgrade head
       - run: python -m scripts.seed
+      - run: python -m scripts.seed_fixtures
       - run: make eval-smoke
-      - name: Quality gate
+      - name: Quality gate (real metrics; missing metrics FAIL)
         run: |
-          python -c "
-          import glob, json, sys, os
-          report_files = sorted(glob.glob('evals/reports/*.json'))
+          python - <<'PY'
+          import glob, json, os, sys
+          report_files = sorted(glob.glob('evals/reports/eval-*.json'))
           if not report_files:
               print('FAIL: No evaluation report generated.')
               sys.exit(1)
           with open(report_files[-1]) as f:
               data = json.load(f)
-          queries = data.get('total_queries', 0)
-          print(f'Smoke evaluation verified: {queries} queries processed in {report_files[-1]}')
-          faithfulness = data.get('summary', {}).get('faithfulness')
-          if faithfulness is not None:
-              threshold = float(os.environ.get('EVAL_FAITHFULNESS_MIN', '0.85'))
-              if faithfulness < threshold:
-                  print(f'FAIL: faithfulness {faithfulness} < {threshold}')
-                  sys.exit(1)
-              print(f'OK: faithfulness {faithfulness} >= {threshold}')
-          "
+          results = data.get('results', [])
+          if any(r.get('answer') == '[not implemented]' for r in results):
+              print('FAIL: runner produced placeholder answers.')
+              sys.exit(1)
+          s = (data.get('summary_by_baseline') or {}).get('baseline_6_agentic')
+          if s is None:
+              print('FAIL: smoke report has no baseline_6_agentic summary.')
+              sys.exit(1)
+          checks = [
+              ('behavior_compliance', '>=', float(os.environ.get('EVAL_BEHAVIOR_MIN', '0.9'))),
+              ('pattern_faithfulness', '>=', float(os.environ.get('EVAL_PATTERN_MIN', '0.6'))),
+              ('recall_at_k', '>=', float(os.environ.get('EVAL_RECALL_MIN', '0.8'))),
+              ('unexpected_failure_rate', '<=', float(os.environ.get('EVAL_UNEXPECTED_FAIL_MAX', '0.05'))),
+              ('unauthorized_citations', '==', 0),
+          ]
+          failed = False
+          for metric, op, threshold in checks:
+              value = s.get(metric)
+              if value is None:
+                  print(f'FAIL: {metric} was not measured (None) - gate cannot pass on missing data.')
+                  failed = True
+                  continue
+              ok = {'>=': value >= threshold, '<=': value <= threshold, '==': value == threshold}[op]
+              print(f"{'OK' if ok else 'FAIL'}: {metric}={value} (gate {op} {threshold})")
+              failed = failed or not ok
+          print(f"provider={data.get('provider')} corpus={data.get('corpus_sha256')}")
+          sys.exit(1 if failed else 0)
+          PY
 
   build:
     runs-on: ubuntu-latest
