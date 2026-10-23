@@ -29,11 +29,11 @@ from apps.api.app.deps.auth import AuthUser
 from src.agents.citation_validator import validate_citations
 from src.agents.classifier import QueryClass, classify_query
 from src.agents.evidence_validator import check_evidence_sufficiency
-from src.agents.generator import generate_answer
+from src.agents.generator import ABSTENTION_ANSWER, generate_answer
 from src.agents.planner import plan
 from src.agents.state import AgentState, AgentStateName
 from src.agents.tools import execute_tool
-from src.core.failures import Failure
+from src.core.failures import Failure, user_message
 from src.llm.provider import get_llm_provider
 from src.observability.tracing import traced_operation
 
@@ -177,17 +177,53 @@ async def _run_loop(
     state.answer = generation.answer
     state.cost_usd += generation.cost_usd
 
-    # 7. Validate citations
-    async with traced_operation("agent.validate_citations", trace_id=state.trace_id):
-        citations = await validate_citations(generation.answer, state.retrieved_chunks, llm)
+    # 6b. Output safety: block known injection patterns leaked into the answer
+    from src.security.prompt_injection import sanitize_output
 
-    if not citations:
-        state.answer = "I generated an answer I cannot verify. Withholding response."
+    sanitized, blocked = sanitize_output(generation.answer)
+    if blocked:
+        state.answer = user_message(Failure.UNSAFE_CONTENT)
+        state.failure = Failure.UNSAFE_CONTENT
+        state.current_state = AgentStateName.FAILED
+        return
+    state.answer = sanitized
+
+    # 7. Validate citations against the answer's own claims
+    async with traced_operation("agent.validate_citations", trace_id=state.trace_id):
+        validation = await validate_citations(generation.answer, state.retrieved_chunks, llm)
+
+    from src.agents.citation_validator import parse_markers
+
+    has_markers = bool(parse_markers(generation.answer))
+
+    if validation.invalid_markers:
+        # Fabricated / out-of-range markers: the answer is not trustworthy.
+        state.answer = user_message(Failure.CITATION_MISMATCH)
+        state.failure = Failure.CITATION_MISMATCH
+        state.current_state = AgentStateName.FAILED
+        return
+
+    if not has_markers:
+        if generation.answer.strip() == ABSTENTION_ANSWER:
+            # Well-defined abstention path: no citations required.
+            state.answer = generation.answer
+            state.failure = Failure.INSUFFICIENT_EVIDENCE
+            state.current_state = AgentStateName.END
+            return
+        # Factual-looking answer with no citation markers at all.
+        state.answer = user_message(Failure.CITATION_MISMATCH)
+        state.failure = Failure.CITATION_MISMATCH
+        state.current_state = AgentStateName.FAILED
+        return
+
+    if not validation.citations:
+        # Markers exist but no claim survived verification.
+        state.answer = user_message(Failure.HALLUCINATION_DETECTED)
         state.failure = Failure.HALLUCINATION_DETECTED
         state.current_state = AgentStateName.FAILED
         return
 
-    state.citations = citations
+    state.citations = validation.citations
     state.current_state = AgentStateName.END
 
 

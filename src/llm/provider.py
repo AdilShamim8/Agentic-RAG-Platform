@@ -192,7 +192,13 @@ class _MockLLMProvider(BaseLLMProvider):
             import re
 
             chunk_ids = re.findall(r"\[chunk_id=([^\]]+)\]", prompt)
-            results = [{"chunk_id": cid, "claim": "claim", "supported": True} for cid in chunk_ids]
+            # Cross-product (claim_index x chunk_id) so any strict lookup of
+            # (i, chunk) with i < 8 succeeds - the mock never withholds.
+            results = [
+                {"claim_index": i, "chunk_id": cid, "supported": True}
+                for i in range(8)
+                for cid in chunk_ids
+            ]
             text = json.dumps({"results": results})
         elif "hallucination" in prompt_lower:
             text = json.dumps({"unsupported_claims": [], "rate": 0.0})

@@ -27,6 +27,7 @@ class Failure(StrEnum):
     AGENT_LOOP = "agent_loop"
     HALLUCINATION_DETECTED = "hallucination_detected"
     CITATION_MISMATCH = "citation_mismatch"
+    UNSAFE_CONTENT = "unsafe_content"
 
 
 USER_MESSAGES: dict[Failure, str] = {
@@ -46,6 +47,7 @@ USER_MESSAGES: dict[Failure, str] = {
     Failure.AGENT_LOOP: "I'm having trouble reasoning through this. Could you rephrase?",
     Failure.HALLUCINATION_DETECTED: "I generated an answer I cannot verify. Withholding response.",
     Failure.CITATION_MISMATCH: "I couldn't verify my citations. Withholding response.",
+    Failure.UNSAFE_CONTENT: "I generated a response that may contain unsafe content. Withholding response.",
 }
 
 
