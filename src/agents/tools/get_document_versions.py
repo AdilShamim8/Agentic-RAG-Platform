@@ -22,9 +22,7 @@ from src.retrieval.types import ScoredChunk
     description="List all versions of a document.",
     schema={
         "type": "object",
-        "properties": {
-            "document_id": {"type": "string", "minLength": 1}
-        },
+        "properties": {"document_id": {"type": "string", "minLength": 1}},
         "required": ["document_id"],
     },
 )
@@ -73,9 +71,7 @@ async def get_document_versions(
         }
         for v in rows
     ]
-    lines = [
-        f"Document '{doc.title}' (id={doc.id}) has {len(versions)} version(s):"
-    ]
+    lines = [f"Document '{doc.title}' (id={doc.id}) has {len(versions)} version(s):"]
     for v in versions:
         summary = v["change_summary"] or "no summary"
         lines.append(f"- v{v['version']} created {v['created_at']}: {summary}")
@@ -91,5 +87,6 @@ async def get_document_versions(
         url=None,
         version=doc.version,
     )
-    return ToolResult(chunks=[chunk], cost_usd=0.0,
-                      metadata={"document_id": str(doc.id), "versions": versions})
+    return ToolResult(
+        chunks=[chunk], cost_usd=0.0, metadata={"document_id": str(doc.id), "versions": versions}
+    )

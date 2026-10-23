@@ -93,7 +93,10 @@ def test_validate_enum_and_bounds() -> None:
 
 
 def test_validate_string_length() -> None:
-    schema = {"type": "object", "properties": {"q": {"type": "string", "minLength": 2, "maxLength": 5}}}
+    schema = {
+        "type": "object",
+        "properties": {"q": {"type": "string", "minLength": 2, "maxLength": 5}},
+    }
     with _register(schema) as name:
         with pytest.raises(ValueError, match="length >= 2"):
             validate_tool_args(name, {"q": "x"})
