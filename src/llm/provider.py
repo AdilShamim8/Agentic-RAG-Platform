@@ -6,10 +6,13 @@ Use this everywhere instead of `openai` or `anthropic` directly.
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from typing import Any, Protocol
 
 from apps.api.app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -398,10 +401,24 @@ _llm: Any = None
 
 
 def get_llm_provider() -> Any:
-    """Singleton accessor."""
+    """Singleton accessor.
+
+    Selection mirrors evals.run.resolve_provider_mode: a missing or 'sk-test'
+    key selects the deterministic mock provider (with a warning when the key
+    is merely absent) instead of crashing the real OpenAI client with
+    'Missing credentials'.
+    """
     global _llm
     if _llm is None:
-        if settings.openai_api_key.startswith("sk-test"):
+        key = (settings.openai_api_key or "").strip()
+        if key.startswith("sk-test"):
+            _llm = _MockLLMProvider(model=settings.openai_default_model)
+        elif not key:
+            logger.warning(
+                "OPENAI_API_KEY is not set; using the deterministic mock LLM "
+                "provider (same rule as evals.run.resolve_provider_mode). "
+                "Set a real key for live answers."
+            )
             _llm = _MockLLMProvider(model=settings.openai_default_model)
         elif settings.anthropic_api_key and settings.openai_default_model.startswith("claude"):
             _llm = _AnthropicProvider(model=settings.anthropic_default_model)
