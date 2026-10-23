@@ -3,7 +3,7 @@
 Evidence codes: **AUTO** (automated test, passing in the final validation run),
 **BLOCKED** (cannot run in this environment - reason given), **DOC** (documented behavior).
 Every row lists the exact automated path when one exists. The final validation
-run for this review: 151 backend tests + frontend lint/tsc/build, all green.
+run for this review: 207 backend tests + frontend lint/tsc/build, all green.
 
 ## 1. Configuration / startup
 
@@ -25,6 +25,12 @@ run for this review: 151 backend tests + frontend lint/tsc/build, all green.
 | 5 failed logins -> 429 + Retry-After; window recovery | Brute force | 429 then recovery | `...::test_login_rate_limit_after_repeated_failures`, `...::test_rate_limit_recovers_after_window` | PASS (AUTO) |
 | Unauthenticated query | 401 | 401 | `test_query_endpoint.py::test_query_unauthenticated_returns_401` | PASS (AUTO) |
 | AuthUser flows into agent (no ORM User) | Type confusion | AuthUser instance, no unawaited coroutines | `test_auth_user_flow.py` | PASS (AUTO) |
+| Login sets HttpOnly refresh cookie | XSS-readable 7-day credential | set-cookie: HttpOnly, SameSite=lax | `test_auth_refresh_rotation.py::test_login_sets_httponly_refresh_cookie` | PASS (AUTO) |
+| Refresh via cookie only (browser flow) | Cookie flow unusable | 200 + rotated tokens | `...::test_refresh_via_cookie_without_body` | PASS (AUTO) |
+| Refresh rotates; replayed token rejected + audited | Token theft/replay | old token 401, audit row written | `...::test_refresh_rotates_and_old_token_is_rejected`, `...::test_replay_of_revoked_token_is_audited` | PASS (AUTO) |
+| Logout revokes + clears cookie | Zombie sessions | 204, cookie cleared, replay 401 | `...::test_logout_revokes_token_and_clears_cookie`, `...::test_logout_without_tokens_is_idempotent_204` | PASS (AUTO) |
+| Rate limiting: memory + Redis backends identical | Multi-worker bypass | same block/cooldown semantics both backends | `test_rate_limit.py` (parametrized over both) | PASS (AUTO) |
+| Rate-limit factory falls back when Redis down | Hard dependency | in-memory fallback + warning | `test_rate_limit.py::test_factory_auto_falls_back_when_redis_unreachable` | PASS (AUTO) |
 
 ## 3. RBAC / authorization (real retrieval, real Postgres)
 
@@ -59,6 +65,11 @@ run for this review: 151 backend tests + frontend lint/tsc/build, all green.
 | Planner references unregistered tool | Arbitrary tool execution | Step dropped at plan sanitization | `...::test_unknown_tool_steps_dropped_plan_still_valid` | PASS (AUTO) |
 | Query-classification abstains on corpus-missing queries | Hallucination | Abstain, never fabricates | `...::test_unrelated_document_abstains` | PASS (AUTO) |
 | Loop detection + budgets | Infinite loops | state.is_looping + can_continue; latency < 30s gate | regression `test_agent_termination_under_30s` | PASS (AUTO) |
+
+| Vague query ('Tell me about the policy.') | Wasted retrieval / guessed answer | Clarification question, 0 tool calls | `test_clarify_conflict_agent.py::test_vague_query_gets_a_clarification_question` | PASS (AUTO) |
+| Conflicting current documents (IT $40 vs Finance $60 internet) | Silently picks one side | Conflict report citing both, verified | `...::test_conflicting_sources_are_reported_not_picked` | PASS (AUTO) |
+| Unconflicted query still answers normally | Over-eager conflict reporting | Normal grounded answer | `...::test_unconflicted_query_still_answers_normally` | PASS (AUTO) |
+| Ambiguity rule excludes specific code lookups | POL-2024-007 misrouted to clarify | simple_factual (golden q-015 stays 'answer') | `test_clarify_conflict.py::test_mock_classifier_ambiguity_rule` | PASS (AUTO) |
 
 ## 6. Citations
 
@@ -95,6 +106,13 @@ run for this review: 151 backend tests + frontend lint/tsc/build, all green.
 | Duplicate content | Duplicate corpus | Idempotent (same document id) | `...::test_ingest_and_lifecycle` (step 5) | PASS (AUTO) |
 | Soft delete -> 404 + absent from list | Zombie documents | 404; excluded | `...::test_ingest_and_lifecycle` (steps 6-7) | PASS (AUTO) |
 
+| Async ingest: 202 -> worker -> document in DB | Queue never consumed | done + document persisted | `test_ingest_jobs.py::test_async_ingest_queues_job_and_worker_processes_it` | PASS (AUTO) |
+| Async ingest 503 when Redis down | Silent job loss | 503, never silent | `...::test_async_ingest_503_when_queue_unavailable` | PASS (AUTO) |
+| Bad files rejected before queueing | Worker crashes on junk | 400 at the API, queue empty | `...::test_async_ingest_validates_before_queueing` | PASS (AUTO) |
+| Job status ACL (owner/admin only) | Cross-user job snooping | owner 200, others 403, admin 200, missing 404 | `...::test_job_status_visible_to_owner_and_admin_only` | PASS (AUTO) |
+| Failed job recorded, not retried forever | Poison job loops | status=failed + error | `...::test_worker_records_failed_jobs` | PASS (AUTO) |
+| Queue mechanics (reliable queue, orphan sweep, TTL drop) | Crash loses/duplicates jobs | 8 unit tests | `test_jobs_queue.py` | PASS (AUTO) |
+
 ## 9. Conversations / persistence
 
 | Scenario | Risk | Expected | Automated path | Result |
@@ -120,6 +138,8 @@ run for this review: 151 backend tests + frontend lint/tsc/build, all green.
 | /admin/stats real counts | Fabricated zeros | Real aggregates | `...::test_admin_stats_real_counts` | PASS (AUTO) |
 | /admin/health/detailed honest states | Fabricated connectivity | Real pool status; redis 'not wired' | `...::test_admin_detailed_health_honest` | PASS (AUTO) |
 | Admin endpoints for non-admins | Privilege leak | 403 | `...::test_admin_forbidden_for_non_admin` | PASS (AUTO) |
+
+| Per-event cost persisted; stats = DB sum | Fabricated cost reporting | event.cost_usd == API-reported; stats == sum(retrieval_events) | `test_retrieval_event_cost.py` (2 tests) | PASS (AUTO) |
 
 ## 12. Evaluation
 

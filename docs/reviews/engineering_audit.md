@@ -102,45 +102,72 @@ never-existing field, unable to fail).
 
 ## 4. What works now (with evidence)
 
-- 151 backend tests + frontend lint/tsc/build, all green; matrix in
+- 207 backend tests + frontend lint/tsc/build, all green; matrix in
   `test_matrix.md` with per-scenario evidence codes.
 - End-to-end agent journey over real PostgreSQL: login (JSON, per docs) ->
   authorized retrieval (RBAC + freshness in SQL) -> grounded answer with
   verified, claim-mapped citations -> persisted multi-turn conversation.
 - Full-golden evaluation across six baselines with real, differentiated
-  numbers (mock provider, labeled): agentic behavior compliance 0.959 /
-  unexpected-failure 0.041 (best), hybrid 0.898/0.102, lexical 0.592/0.408.
-  Reports: `evals/reports/` incl. `comparison.md`.
+  numbers (mock provider, labeled): agentic behavior compliance 0.960 /
+  unexpected-failure 0.040 (best) with all 50/50 rows scored (clarify and
+  conflict-report rows included since the follow-up series), hybrid
+  0.880/0.100, lexical 0.580/0.420. Reports: `evals/reports/` incl.
+  `comparison.md`.
+- Follow-up hardening series (this session, commits c1ba4dc..aaebb78):
+  - Web app fresh-clone integrity repaired (gitignore `lib/` collision
+    had silently dropped `src/lib/auth.ts` from the repo).
+  - Refresh tokens live in HttpOnly cookies with per-use rotation, a
+    revocation deny list, replay detection with audit trail, and a real
+    `/auth/logout`; the browser no longer stores any refresh token.
+  - Login rate limiting is Redis-backed (sorted-set sliding window) with
+    a per-process in-memory fallback; identical semantics in both.
+  - The worker is real: reliable-queue Redis consumer with orphan
+    recovery, SIGTERM-safe shutdown, heartbeat healthcheck; async ingest
+    via `POST /documents/ingest-async` + job-status polling (owner/admin
+    ACL), 503 (never silent) when Redis is down.
+  - Clarify and conflict-report agent behaviors implemented and scored
+    in the eval harness (was: permanently unscored rows).
+  - Per-event retrieval cost persisted (`retrieval_events.cost_usd`);
+    `/admin/stats` reports the real 24h sum instead of a hardcoded 0.0.
 
 ## 5. Readiness assessment
 
 - **Local development: READY.** `make up` + migrate + seed + seed-fixtures +
-  ingest + query all verified (directly against PostgreSQL 17+pgvector where
-  Docker was unavailable; CI covers the compose path).
+  ingest (sync or queued through the worker) + query all verified (directly
+  against PostgreSQL 17+pgvector where Docker was unavailable; CI covers the
+  compose path).
 - **Staging: READY with caveats.** Deterministic offline providers are the
   default test path; real providers need a key and a first-run smoke.
+  Enable REFRESH_COOKIE_SECURE (TLS) and keep one worker replica until
+  multi-worker orphan recovery is designed.
 - **Production: NOT READY.** Remaining risks below must be addressed first.
 
 ## 6. Remaining risks (prioritized)
 
-1. **Token storage is demo-grade** (localStorage in the browser). Production
-   should move refresh tokens to HttpOnly cookies with a revocation list.
-   (P1, follow-up)
-2. **No real-provider runtime validation of LLM judging / bge-m3 / bge
-   reranker in this environment** - contract-tested only; nightly CI exercises
-   real providers when secrets exist. (P1, environment-blocked)
-3. **Worker is a poller stub; Redis is configured but unwired.** Ingestion and
-   evaluation run via CLI; no background job execution. (P2)
-4. **clarify behavior and conflicting-source reporting are not implemented**
-   (rows marked unscored). (P2/P3)
-5. **Login rate limiting is in-memory single-process.** Multi-worker
-   deployments need Redis-backed limiting. (P2)
-6. **Cost per retrieval event is not persisted** (cost_usd_24h reported as a
-   known gap, not fabricated). (P3)
-7. **Content sniffing is best-effort**; deep parser fuzzing not performed. (P3)
+1. **No real-provider runtime validation of LLM judging / bge-m3 / bge
+   reranker in this environment** - contract-tested only; nightly CI
+   exercises real providers when secrets exist. (P1, environment-blocked)
+2. **Async-ingest job payloads carry file content (base64) through
+   Redis.** Bounded by the 20 MB upload cap and job TTL; large-scale
+   production should pass object-store pointers instead. (P3)
+3. **Worker orphan recovery assumes a single worker replica** (no
+   heartbeat protocol); with multiple replicas a crashed worker's job
+   waits for manual re-drive. Eval jobs are still CLI-only. (P2, follow-up)
+4. **Offline conflict detection is a number+unit heuristic** (days/week,
+   $/period, weeks of leave, %). Non-numeric conflicts (yes/no decisions,
+   dates, procedures) need the real LLM judge. (P3)
+5. **REFRESH_COOKIE_SECURE defaults to false** for plain-http local dev;
+   MUST be enabled behind TLS. The web access token still lives in
+   sessionStorage for the demo (short-lived; the long-lived credential is
+   the HttpOnly cookie). (P2, deployment checklist)
+6. **Rate-limiter backend is resolved once per process** - if Redis dies
+   mid-flight, limiting stays in per-process memory until restart.
+   X-Forwarded-For still requires a trusted proxy. (P3)
+7. **Content sniffing is best-effort**; deep parser fuzzing not performed.
+   (P3)
 8. Demo credentials (`alice@demo.dev`/`password123`, `rag:rag` DB) are
-   development-only; production must not reuse them (documented in QUICKSTART
-   and SECURITY.md).
+   development-only; production must not reuse them (documented in
+   QUICKSTART and SECURITY.md).
 
 ## 7. How to run and verify
 

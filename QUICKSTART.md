@@ -100,7 +100,22 @@ curl -s -X POST http://localhost:8000/query \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"query":"What is our remote work policy?"}' | jq
+
+# Ingest in the background (worker picks it up from Redis; poll the job id)
+JOB=$(curl -s -X POST http://localhost:8000/documents/ingest-async \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "file=@docs/policy.md" | jq -r .job_id)
+curl -s http://localhost:8000/documents/jobs/$JOB \
+  -H "Authorization: Bearer $TOKEN" | jq
+
+# Logout (revokes the refresh token server-side and clears the cookie)
+curl -s -X POST http://localhost:8000/auth/logout \
+  -H "Authorization: Bearer $TOKEN" -o /dev/null -w "%{http_code}\n"
 ```
+
+Note: the browser flow keeps its refresh token in an HttpOnly cookie
+(never in JavaScript-readable storage); `curl` users can pass
+`{"refresh_token": "..."}` in the body of `/auth/refresh` instead.
 
 ### View the trace
 

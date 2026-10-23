@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-10-23T05:40:00Z",
+  "generated_at": "2026-10-23T07:30:00Z",
   "repo": "https://github.com/AdilShamim8/Agentic-RAG-Platform",
   "baseline_commit": "628df28db9e3a4c3f7af8f70c6217d11bb3b3399",
-  "fixed_through_commit": "40ec2ee",
+  "fixed_through_commit": "aaebb78",
   "evidence_note": "Status 'fixed' means a regression test exists and passed in the final validation run; see test_matrix.md for the mapping. 'known_gap' items are documented risks, not silently ignored.",
   "issues": [
     {
@@ -10,7 +10,10 @@
       "severity": "P0",
       "category": "startup",
       "title": "docker-compose omitted APP_SECRET_KEY/JWT_SECRET so the API and worker crashed at import",
-      "paths": ["docker-compose.yml", "apps/api/app/core/config.py"],
+      "paths": [
+        "docker-compose.yml",
+        "apps/api/app/core/config.py"
+      ],
       "reproduction": "docker compose up with a filled .env -> api/worker exit with pydantic ValidationError (app_secret_key Field required)",
       "fix_commit": "1f1ceb0",
       "test_evidence": "tests/unit/test_config.py (8 tests)",
@@ -22,7 +25,10 @@
       "severity": "P0",
       "category": "authorization",
       "title": "Routers injected the ORM User where services/agents expected AuthUser; user.permissions/projects became unawaited coroutines",
-      "paths": ["apps/api/app/deps/auth.py", "apps/api/app/routers/*"],
+      "paths": [
+        "apps/api/app/deps/auth.py",
+        "apps/api/app/routers/*"
+      ],
       "reproduction": "POST /query -> RuntimeWarning 'coroutine User.projects was never awaited'; tool permission checks compared against a coroutine",
       "fix_commit": "23595ee",
       "test_evidence": "tests/integration/test_auth_user_flow.py",
@@ -34,7 +40,10 @@
       "severity": "P1",
       "category": "api-contract",
       "title": "Login required an OAuth2 form; QUICKSTART documents JSON {email,password} -> documented flow returned 422",
-      "paths": ["apps/api/app/routers/auth.py", "QUICKSTART.md"],
+      "paths": [
+        "apps/api/app/routers/auth.py",
+        "QUICKSTART.md"
+      ],
       "reproduction": "curl -H 'Content-Type: application/json' -d '{\"email\":...,\"password\":...}' /auth/login -> 422",
       "fix_commit": "9db13af",
       "test_evidence": "tests/integration/test_auth_login_contract.py (7 tests)",
@@ -46,7 +55,9 @@
       "severity": "P1",
       "category": "auth-hardening",
       "title": "Refresh token accepted as a URL query parameter (logs/proxies) and login had no brute-force protection",
-      "paths": ["apps/api/app/routers/auth.py"],
+      "paths": [
+        "apps/api/app/routers/auth.py"
+      ],
       "fix_commit": "9db13af",
       "test_evidence": "tests/integration/test_auth_login_contract.py (refresh body contract + 429 + window recovery)",
       "status": "fixed",
@@ -57,7 +68,9 @@
       "severity": "P1",
       "category": "retrieval",
       "title": "Reranker imported FlagEmbedding.FlagLLMModel which does not exist -> every hybrid_reranked retrieval raised ImportError",
-      "paths": ["src/reranking/cross_encoder.py"],
+      "paths": [
+        "src/reranking/cross_encoder.py"
+      ],
       "reproduction": "get_reranker() -> ImportError: cannot import name 'FlagLLMModel'",
       "fix_commit": "2981b04",
       "test_evidence": "tests/unit/test_reranker.py (fake-module contract tests)",
@@ -69,7 +82,11 @@
       "severity": "P1",
       "category": "retrieval-freshness",
       "title": "effective_from/to were selected but never filtered; expired and future documents were fully retrievable (freshness was a score nudge only)",
-      "paths": ["src/retrieval/dense.py", "src/retrieval/lexical.py", "src/retrieval/freshness.py"],
+      "paths": [
+        "src/retrieval/dense.py",
+        "src/retrieval/lexical.py",
+        "src/retrieval/freshness.py"
+      ],
       "reproduction": "Seed an expired doc (effective_to=yesterday) -> default retrieval returned it",
       "fix_commit": "8c49c4f",
       "test_evidence": "tests/integration/test_freshness.py (12 tests incl. range intersection semantics)",
@@ -81,7 +98,11 @@
       "severity": "P0",
       "category": "retrieval-sql",
       "title": "NULL-bound optional filters made asyncpg raise AmbiguousParameterError - the retrieval SQL had never actually executed end-to-end",
-      "paths": ["src/retrieval/dense.py", "src/retrieval/lexical.py", "src/retrieval/sqlfilters.py"],
+      "paths": [
+        "src/retrieval/dense.py",
+        "src/retrieval/lexical.py",
+        "src/retrieval/sqlfilters.py"
+      ],
       "reproduction": "dense_retrieve without a department filter -> could not determine data type of parameter $5",
       "fix_commit": "8c49c4f (masked pre-fix by upstream failures)",
       "test_evidence": "All RBAC/freshness/agent integration tests now execute the SQL",
@@ -93,7 +114,9 @@
       "severity": "P2",
       "category": "retrieval-fusion",
       "title": "RRF ranks were 0-based (paper uses 1-based) and fused scores mutated shared input objects in place",
-      "paths": ["src/retrieval/hybrid.py"],
+      "paths": [
+        "src/retrieval/hybrid.py"
+      ],
       "fix_commit": "45a7cd9",
       "test_evidence": "tests/unit/test_rrf_fuse.py (exact 1/(k+1) values, non-mutation)",
       "status": "fixed",
@@ -104,7 +127,9 @@
       "severity": "P2",
       "category": "retrieval-rbac-tests",
       "title": "All four RBAC security tests were empty pass stubs",
-      "paths": ["tests/security/test_rbac.py"],
+      "paths": [
+        "tests/security/test_rbac.py"
+      ],
       "fix_commit": "8c49c4f",
       "test_evidence": "Real seeded-document tests: manager-only chunk never leaks via dense/lexical/hybrid; user-allowlist isolation; role spoofing in body ignored; soft-deleted excluded",
       "status": "fixed",
@@ -115,7 +140,10 @@
       "severity": "P1",
       "category": "agent-loop",
       "title": "No re-plan loop: state.py documented a bounded retry loop but the orchestrator terminated on the first insufficient-evidence verdict; any tool exception killed the query",
-      "paths": ["src/agents/orchestrator.py", "src/agents/state.py"],
+      "paths": [
+        "src/agents/orchestrator.py",
+        "src/agents/state.py"
+      ],
       "fix_commit": "ee045a8",
       "test_evidence": "tests/integration/test_agent_loop.py (replan with feedback, exhaustion abstains, per-step tolerance, all-steps-fail)",
       "status": "fixed",
@@ -126,7 +154,9 @@
       "severity": "P0",
       "category": "agent-tools",
       "title": "Nothing imported the tool modules in the app path - the registry was EMPTY and every execute_tool raised 'Unknown tool'",
-      "paths": ["src/agents/tools/__init__.py"],
+      "paths": [
+        "src/agents/tools/__init__.py"
+      ],
       "fix_commit": "ee045a8",
       "test_evidence": "tests/unit/test_planner.py asserts all four tools registered; agent happy path executes search_documents",
       "status": "fixed",
@@ -137,7 +167,9 @@
       "severity": "P1",
       "category": "agent-planner",
       "title": "Planner prompt never documented tool schemas, so planners hallucinated args (e.g. {\"query\"}) that the registry rejected",
-      "paths": ["src/agents/planner.py"],
+      "paths": [
+        "src/agents/planner.py"
+      ],
       "fix_commit": "ee045a8",
       "test_evidence": "tests/unit/test_planner.py (prompt contains schemas; sanitize drops unknown tools/out-of-schema args; caps steps)",
       "status": "fixed",
@@ -148,7 +180,10 @@
       "severity": "P1",
       "category": "citation-validity",
       "title": "Citation verifier validated the evidence against itself (CLAIMS were built from citation snippets = chunk content); out-of-range markers silently dropped while the answer kept citing them; duplicates not deduped; no abstention path",
-      "paths": ["src/agents/citation_validator.py", "src/agents/orchestrator.py"],
+      "paths": [
+        "src/agents/citation_validator.py",
+        "src/agents/orchestrator.py"
+      ],
       "reproduction": "Answer citing a real chunk with a claim the chunk does not support -> judge saw the chunk text as the 'claim' and approved",
       "fix_commit": "914fca2",
       "test_evidence": "tests/unit/test_citation_validation.py (12 tests) + tests/integration/test_citation_flow.py (6 tests)",
@@ -160,7 +195,10 @@
       "severity": "P1",
       "category": "prompt-injection",
       "title": "Layer-1 input classifier (classify_input) was never called anywhere; the output sanitizer (sanitize_output) was never wired into the pipeline",
-      "paths": ["src/security/prompt_injection.py", "src/agents/orchestrator.py"],
+      "paths": [
+        "src/security/prompt_injection.py",
+        "src/agents/orchestrator.py"
+      ],
       "fix_commit": "ebbf021 (input) + 914fca2 (output)",
       "test_evidence": "test_agent_loop.py::test_query_level_injection_screen, test_citation_flow.py::test_injection_echo_in_answer_blocked",
       "status": "fixed",
@@ -171,7 +209,9 @@
       "severity": "P1",
       "category": "document-lifecycle",
       "title": "document_service was five TODO stubs (list=[], ingest=NotImplementedError, get=None, versions=[], delete=pass)",
-      "paths": ["apps/api/app/services/document_service.py"],
+      "paths": [
+        "apps/api/app/services/document_service.py"
+      ],
       "fix_commit": "a7a4ebb",
       "test_evidence": "tests/integration/test_documents_api.py (5 tests: lifecycle, permissions, malformed/oversized/mislabeled uploads, cross-role access, audit rows)",
       "status": "fixed",
@@ -182,7 +222,10 @@
       "severity": "P1",
       "category": "persistence",
       "title": "query_service had 'TODO: persist to messages'; conversation_service was three stubs; every response invented a fresh conversation_id so multi-turn context could not continue",
-      "paths": ["apps/api/app/services/query_service.py", "apps/api/app/services/conversation_service.py"],
+      "paths": [
+        "apps/api/app/services/query_service.py",
+        "apps/api/app/services/conversation_service.py"
+      ],
       "fix_commit": "d16c80a",
       "test_evidence": "tests/integration/test_conversations.py (persistence, IDOR, failed-run persistence)",
       "status": "fixed",
@@ -193,7 +236,9 @@
       "severity": "P2",
       "category": "memory",
       "title": "memory_service was four TODO stubs (empty list / None / False / empty list)",
-      "paths": ["apps/api/app/services/memory_service.py"],
+      "paths": [
+        "apps/api/app/services/memory_service.py"
+      ],
       "fix_commit": "6b4ac41",
       "test_evidence": "tests/integration/test_memory_api.py (lifecycle, isolation, expiry, memory_search tool scoping)",
       "status": "fixed",
@@ -204,7 +249,10 @@
       "severity": "P2",
       "category": "tool-validation",
       "title": "Registry validation checked only required/unknown keys and 3 types; no boolean/number/enum/bounds/length/items/nested validation. get_document_versions returned a TODO stub",
-      "paths": ["src/agents/tools/registry.py", "src/agents/tools/get_document_versions.py"],
+      "paths": [
+        "src/agents/tools/registry.py",
+        "src/agents/tools/get_document_versions.py"
+      ],
       "fix_commit": "884c2eb",
       "test_evidence": "tests/unit/test_tool_registry.py (7 tests) + agent_loop versions-tool test",
       "status": "fixed",
@@ -215,7 +263,10 @@
       "severity": "P2",
       "category": "observability",
       "title": "/health/ready hardcoded ok for embedder/llm/reranker; /admin/stats returned all zeros; /admin/health/detailed fabricated redis connected:true and langfuse reachable:true",
-      "paths": ["apps/api/app/routers/health.py", "apps/api/app/routers/admin.py"],
+      "paths": [
+        "apps/api/app/routers/health.py",
+        "apps/api/app/routers/admin.py"
+      ],
       "fix_commit": "edca303",
       "test_evidence": "tests/integration/test_health_admin.py (4 tests)",
       "status": "fixed",
@@ -226,7 +277,12 @@
       "severity": "P1",
       "category": "evaluation",
       "title": "Golden dataset used placeholder ids (chunk-uuid-placeholder-1), most rows had empty expected arrays; run_one returned '[not implemented]'; CI quality gate read a faithfulness field that never existed so it could never fail; compare.py printed '?' rows",
-      "paths": ["evals/datasets/golden.jsonl", "evals/run.py", "evals/compare.py", ".github/workflows/ci.yml"],
+      "paths": [
+        "evals/datasets/golden.jsonl",
+        "evals/run.py",
+        "evals/compare.py",
+        ".github/workflows/ci.yml"
+      ],
       "fix_commit": "42e6413",
       "test_evidence": "tests/unit/test_eval_validation.py (10 tests) + tests/regression/test_golden_dataset.py (6 real gates); reports under evals/reports/",
       "status": "fixed",
@@ -237,7 +293,9 @@
       "severity": "P1",
       "category": "ci",
       "title": "ci.yml on.push/pull_request branch filters were corrupted ('ain]' / 'ain, develop]') so CI did not trigger on main",
-      "paths": [".github/workflows/ci.yml"],
+      "paths": [
+        ".github/workflows/ci.yml"
+      ],
       "fix_commit": "42e6413",
       "test_evidence": "YAML now parses; triggers are [main, develop]/[main]; gates assert on real metrics and FAIL on missing data",
       "status": "fixed",
@@ -248,7 +306,11 @@
       "severity": "P0",
       "category": "frontend",
       "title": "Chat page sent /api/query with no Authorization header (guaranteed 401), no login UI existed, and the catch() branch rendered network errors as assistant answers",
-      "paths": ["apps/web/src/app/page.tsx", "apps/web/src/lib/auth.ts", "apps/web/src/app/login/page.tsx"],
+      "paths": [
+        "apps/web/src/app/page.tsx",
+        "apps/web/src/lib/auth.ts",
+        "apps/web/src/app/login/page.tsx"
+      ],
       "fix_commit": "d4ebc38",
       "test_evidence": "next lint/tsc/build green; API contract covered by login/query integration tests; browser-level E2E not executed in this environment (BLOCKED: no browser)",
       "status": "fixed",
@@ -259,7 +321,10 @@
       "severity": "P2",
       "category": "evaluations-api",
       "title": "Evaluations router was three TODO stubs; pyproject declared a console script pointing at a nonexistent module, undeclared pypdf, and unused heavy deps (sentence-transformers pulled torch, python-jwt unused)",
-      "paths": ["apps/api/app/routers/evaluations.py", "pyproject.toml"],
+      "paths": [
+        "apps/api/app/routers/evaluations.py",
+        "pyproject.toml"
+      ],
       "fix_commit": "40ec2ee",
       "test_evidence": "tests/integration/test_evaluations_api.py (3 tests)",
       "status": "fixed",
@@ -269,34 +334,131 @@
       "id": "GAP-001",
       "severity": "P2",
       "category": "known-gap",
-      "title": "scripts/worker.py is a TODO poller (sleep loop); Redis is configured but no client exists; retrieval_events/audit tables were unused before this work",
-      "paths": ["scripts/worker.py"],
-      "fix_commit": null,
-      "test_evidence": "Static inspection; documented in engineering_audit.md",
-      "status": "known_gap",
-      "residual_risk": "Ingestion/eval must run via CLI (make ingest-local / make eval); no background job execution"
+      "title": "scripts/worker.py was a TODO poller (sleep loop); Redis was configured but no client existed",
+      "paths": [
+        "scripts/worker.py",
+        "apps/api/app/core/jobs.py",
+        "apps/api/app/services/jobs_service.py"
+      ],
+      "fix_commit": "3facd74",
+      "test_evidence": "tests/unit/test_jobs_queue.py (8 reliable-queue mechanics tests) + tests/integration/test_ingest_jobs.py (6 end-to-end: 202 enqueue -> worker fetch/handle -> document in DB, 503 without Redis, pre-queue validation, owner/admin ACL, failed jobs, unknown kinds)",
+      "status": "fixed",
+      "residual_risk": "Orphan recovery assumes a single worker replica (no heartbeat protocol); eval jobs are CLI-only until queued through the same dispatcher"
     },
     {
       "id": "GAP-002",
       "severity": "P3",
       "category": "known-gap",
-      "title": "Clarify behavior not implemented (rows q-009/adv-002 marked unscored for behavior); conflicting-source reporting not implemented (adv-003)",
-      "paths": ["evals/run.py"],
-      "fix_commit": null,
-      "test_evidence": "Unscored reasons recorded in every report",
-      "status": "known_gap",
-      "residual_risk": "Ambiguous queries get answered or abstained instead of asking for clarification"
+      "title": "Clarify behavior and conflicting-source reporting were not implemented (eval rows permanently unscored)",
+      "paths": [
+        "src/agents/classifier.py",
+        "src/agents/conflict_detector.py",
+        "src/agents/orchestrator.py",
+        "evals/run.py"
+      ],
+      "fix_commit": "d863f45",
+      "test_evidence": "tests/unit/test_clarify_conflict.py (17) + tests/integration/test_clarify_conflict_agent.py (3); full golden eval now scores 50/50 rows (agentic behavior 0.96, pattern 0.686)",
+      "status": "fixed",
+      "residual_risk": "Offline conflict detection is a number+unit heuristic (days/week, $/period, weeks of leave, %); non-numeric conflicts need a real provider run"
     },
     {
       "id": "GAP-003",
       "severity": "P2",
       "category": "known-gap",
       "title": "No real-provider runtime validation of LLM judging, bge-m3 embeddings, or bge-reranker in this environment (no GPU, no real API key)",
-      "paths": ["src/llm/provider.py", "src/retrieval/embedders.py", "src/reranking/cross_encoder.py"],
+      "paths": [
+        "src/llm/provider.py",
+        "src/retrieval/embedders.py",
+        "src/reranking/cross_encoder.py"
+      ],
       "fix_commit": null,
       "test_evidence": "Contract tests against documented API shapes; mock-mode end-to-end coverage",
       "status": "blocked",
       "residual_risk": "First real-provider run may surface integration issues (auth, JSON strictness, model quirks); nightly CI job exercises real providers when secrets exist"
+    },
+    {
+      "id": "REPO-001",
+      "severity": "P0",
+      "category": "repo-integrity",
+      "title": "Python-artifact 'lib/' gitignore rule silently excluded apps/web/src/lib; commit d4ebc38 depended on src/lib/auth.ts but never committed it, so fresh clones could not build the web app",
+      "paths": [
+        ".gitignore",
+        "apps/web/src/lib/auth.ts"
+      ],
+      "fix_commit": "c1ba4dc",
+      "test_evidence": "git check-ignore exits 1 for the path; auth.ts tracked; full test matrix green on the repaired tree",
+      "status": "fixed",
+      "residual_risk": "Other untracked-but-needed files would surface in the fresh-clone validation (performed clean)"
+    },
+    {
+      "id": "SEC-004",
+      "severity": "P1",
+      "category": "auth",
+      "title": "Refresh token was returned only in the JSON body and stored by the web client in localStorage (XSS-readable, 7-day lifetime); no rotation, no revocation, no logout endpoint",
+      "paths": [
+        "apps/api/app/routers/auth.py",
+        "apps/web/src/lib/auth.ts",
+        "alembic/versions/0003_revoked_refresh_tokens.py"
+      ],
+      "fix_commit": "719a683",
+      "test_evidence": "tests/integration/test_auth_refresh_rotation.py (8): HttpOnly cookie attributes, cookie-only refresh, rotation kills replayed tokens, reuse detection audited, logout revokes + clears, idempotency",
+      "status": "fixed",
+      "residual_risk": "REFRESH_COOKIE_SECURE must be true behind TLS (default false for local http); access token remains in sessionStorage for the demo"
+    },
+    {
+      "id": "SEC-005",
+      "severity": "P2",
+      "category": "auth",
+      "title": "Failed-login rate limiting was in-memory only - 5 attempts per worker per process lifetime in multi-worker deployments",
+      "paths": [
+        "apps/api/app/core/rate_limit.py",
+        "apps/api/app/routers/auth.py"
+      ],
+      "fix_commit": "5cb3db4",
+      "test_evidence": "tests/unit/test_rate_limit.py (10): both backends pinned to identical semantics via the shared FakeRedis double; factory fallback tests",
+      "status": "fixed",
+      "residual_risk": "Backend is resolved once per process (no mid-flight Redis recovery); X-Forwarded-For still requires a trusted proxy"
+    },
+    {
+      "id": "OPS-002",
+      "severity": "P3",
+      "category": "observability",
+      "title": "Cost per retrieval event was never persisted; /admin/stats reported cost_usd_24h as hardcoded 0.0",
+      "paths": [
+        "apps/api/app/services/query_service.py",
+        "apps/api/app/routers/admin.py",
+        "alembic/versions/0004_retrieval_event_cost.py"
+      ],
+      "fix_commit": "aaebb78",
+      "test_evidence": "tests/integration/test_retrieval_event_cost.py: event row cost equals the API-reported cost; stats equals the DB sum",
+      "status": "fixed",
+      "residual_risk": "Under the mock provider the cost is token-priced from the deterministic mock, not real spend"
+    },
+    {
+      "id": "GAP-004",
+      "severity": "P3",
+      "category": "known-gap",
+      "title": "Async ingest job payloads carry file content (base64) through Redis; fine at the 20 MB upload cap, but large-scale production should pass object-store pointers instead",
+      "paths": [
+        "apps/api/app/services/jobs_service.py"
+      ],
+      "fix_commit": null,
+      "test_evidence": "Design decision documented in core/jobs.py module docstring",
+      "status": "known_gap",
+      "residual_risk": "Redis memory pressure if the queue backs up with many large files; bounded by the upload cap and job TTL"
+    },
+    {
+      "id": "GAP-005",
+      "severity": "P3",
+      "category": "known-gap",
+      "title": "Content sniffing for uploads is best-effort (magic bytes for pdf/docx/html only); deep parser fuzzing not performed",
+      "paths": [
+        "apps/api/app/services/document_service.py"
+      ],
+      "fix_commit": null,
+      "test_evidence": "Documented in the original audit; unchanged",
+      "status": "known_gap",
+      "residual_risk": "A crafted file that satisfies the magic-byte check could still exercise parser edge cases"
     }
   ]
 }
