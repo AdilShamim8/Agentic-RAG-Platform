@@ -53,10 +53,13 @@ class AgentState:
     answer: str = ""
     failure: Failure | None = None
     cost_usd: float = 0.0
+    # Bounded re-plan attempts when evidence is insufficient (see state docstring)
+    replans: int = 0
 
     # Limits (injected from settings)
     max_steps: int = 8
     max_tool_calls: int = 10
+    max_replans: int = 1
     global_timeout_s: int = 30
 
     def is_terminal(self) -> bool:

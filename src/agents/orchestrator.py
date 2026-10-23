@@ -1,13 +1,21 @@
 """Agent orchestrator — the main loop.
 
-Run-loop:
-  while not state.is_terminal():
-      action = decide_next_action(state)
-      result = execute(action, state)
-      state.update(result)
+Run-loop (custom state machine, NOT LangGraph; see
+docs/decisions/ADR-004-agent-orchestration.md):
 
-This is a custom state machine, NOT LangGraph. The reasons are documented in
-docs/decisions/ADR-004-agent-orchestration.md.
+    classify
+    loop (bounded by state.max_replans):
+        plan (with feedback from previous attempt)
+        execute steps (per-step failures tolerated; a plan only fails hard
+                       if every step failed and nothing was retrieved)
+        evidence sufficiency check
+        sufficient  -> break to generation
+        insufficient -> replan (if budget remains) else abstain
+    generate answer
+    validate citations
+
+Budgets: state.max_steps, state.max_tool_calls, state.max_replans, and a
+global asyncio timeout wrap the whole run.
 """
 
 from __future__ import annotations
@@ -22,9 +30,9 @@ from src.agents.citation_validator import validate_citations
 from src.agents.classifier import QueryClass, classify_query
 from src.agents.evidence_validator import check_evidence_sufficiency
 from src.agents.generator import generate_answer
-from src.agents.planner import Plan, plan
+from src.agents.planner import plan
 from src.agents.state import AgentState, AgentStateName
-from src.agents.tools.registry import execute_tool
+from src.agents.tools import execute_tool
 from src.core.failures import Failure
 from src.llm.provider import get_llm_provider
 from src.observability.tracing import traced_operation
@@ -67,6 +75,7 @@ async def run_agent(
         confidence=_confidence(state),
         cost_usd=state.cost_usd,
         tool_call_count=state.tool_calls,
+        replans=state.replans,
     )
 
 
@@ -90,65 +99,85 @@ async def _run_loop(
         state.current_state = AgentStateName.END
         return
 
-    # 2. Plan
-    async with traced_operation("agent.plan", trace_id=state.trace_id):
-        plan_obj: Plan = await plan(state.query, classification.query_class, llm)
+    feedback = ""
+    while True:
+        # 2. Plan (sanitized against the live tool registry; includes feedback on replans)
+        async with traced_operation("agent.plan", trace_id=state.trace_id, replan=state.replans):
+            plan_obj = await plan(state.query, classification.query_class, llm, feedback=feedback)
 
-    if not plan_obj.steps:
-        state.answer = "I don't have enough evidence to answer this confidently."
-        state.failure = Failure.INSUFFICIENT_EVIDENCE
-        state.current_state = AgentStateName.END
-        return
+        if not plan_obj.steps:
+            state.answer = "I don't have enough evidence to answer this confidently."
+            state.failure = Failure.INSUFFICIENT_EVIDENCE
+            state.current_state = AgentStateName.END
+            return
 
-    # 3. Execute each plan step (retrieve + rerank)
-    for step in plan_obj.steps:
-        if not state.can_continue():
-            break
-        if state.is_looping(step.tool, step.tool_args):
-            state.failure = Failure.AGENT_LOOP
+        # 3. Execute plan steps. Per-step failures are tolerated; a step that
+        #    raises does not abort the query.
+        executed = 0
+        failed = 0
+        for step in plan_obj.steps:
+            if not state.can_continue():
+                break
+            if state.is_looping(step.tool, step.tool_args):
+                state.failure = Failure.AGENT_LOOP
+                state.current_state = AgentStateName.FAILED
+                return
+
+            state.steps += 1
+            executed += 1
+            async with traced_operation("agent.tool", trace_id=state.trace_id, tool=step.tool):
+                try:
+                    tool_result = await execute_tool(
+                        tool_name=step.tool,
+                        args=step.tool_args,
+                        sub_question=step.sub_question,
+                        user=user,
+                        session=session,
+                        retrieval_strategy=retrieval_strategy,
+                        top_k=top_k,
+                    )
+                    state.record_tool_call(step.tool, step.tool_args)
+                    state.retrieved_chunks.extend(tool_result.chunks)
+                    state.cost_usd += tool_result.cost_usd
+                except Exception:
+                    failed += 1
+                    continue
+
+        # Every step failed and nothing was retrieved -> hard tool failure.
+        if executed > 0 and failed == executed and not state.retrieved_chunks:
+            state.failure = Failure.TOOL_FAILURE
             state.current_state = AgentStateName.FAILED
             return
 
-        state.steps += 1
-        async with traced_operation("agent.tool", trace_id=state.trace_id, tool=step.tool):
-            try:
-                tool_result = await execute_tool(
-                    tool_name=step.tool,
-                    args=step.tool_args,
-                    sub_question=step.sub_question,
-                    user=user,
-                    session=session,
-                    retrieval_strategy=retrieval_strategy,
-                    top_k=top_k,
-                )
-                state.record_tool_call(step.tool, step.tool_args)
-                state.retrieved_chunks.extend(tool_result.chunks)
-                state.cost_usd += tool_result.cost_usd
-            except TimeoutError:
-                state.failure = Failure.RETRIEVAL_TIMEOUT
-                state.current_state = AgentStateName.FAILED
-                return
-            except Exception:
-                state.failure = Failure.TOOL_FAILURE
-                state.current_state = AgentStateName.FAILED
-                return
+        # 4. Evidence sufficiency
+        async with traced_operation("agent.evidence_check", trace_id=state.trace_id):
+            sufficient = await check_evidence_sufficiency(state.query, state.retrieved_chunks, llm)
 
-    # 4. Evidence sufficiency
-    async with traced_operation("agent.evidence_check", trace_id=state.trace_id):
-        sufficient = await check_evidence_sufficiency(state.query, state.retrieved_chunks, llm)
-    if not sufficient:
+        if sufficient:
+            break
+
+        # 5. Insufficient evidence: bounded replan with feedback
+        if state.replans < state.max_replans and state.can_continue():
+            state.replans += 1
+            feedback = (
+                "A previous retrieval attempt did not find sufficient evidence. "
+                "Produce different sub-questions; consider different tools or broader filters. "
+                "Do not repeat the same steps."
+            )
+            continue
+
         state.answer = "I don't have enough evidence to answer this confidently."
         state.failure = Failure.INSUFFICIENT_EVIDENCE
         state.current_state = AgentStateName.END
         return
 
-    # 5. Generate
+    # 6. Generate
     async with traced_operation("agent.generate", trace_id=state.trace_id):
         generation = await generate_answer(state.query, state.retrieved_chunks, llm)
     state.answer = generation.answer
     state.cost_usd += generation.cost_usd
 
-    # 6. Validate citations
+    # 7. Validate citations
     async with traced_operation("agent.validate_citations", trace_id=state.trace_id):
         citations = await validate_citations(generation.answer, state.retrieved_chunks, llm)
 

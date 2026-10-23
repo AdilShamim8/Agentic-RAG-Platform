@@ -17,6 +17,8 @@ os.environ.setdefault("APP_ENV", "dev")
 # Deterministic offline embedder for tests/CI (no Hugging Face downloads).
 # Override with a real model name to exercise the local/OpenAI embedders.
 os.environ.setdefault("EMBEDDING_MODEL", "test-hashed-bag")
+# Deterministic offline reranker (no FlagEmbedding downloads in tests/CI).
+os.environ.setdefault("RERANKER_MODEL", "test-passthrough")
 
 
 @pytest.fixture(autouse=True)

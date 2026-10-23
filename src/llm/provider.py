@@ -178,7 +178,7 @@ class _MockLLMProvider(BaseLLMProvider):
                         {
                             "sub_question": "remote work policy",
                             "tool": "search_documents",
-                            "tool_args": {"query": "remote work policy"},
+                            "tool_args": {},
                         }
                     ],
                     "rationale": "Search relevant documents",

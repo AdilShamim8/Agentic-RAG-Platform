@@ -117,6 +117,7 @@ async def run_agentic_query(
                 "latency_ms": latency_ms,
                 "cost_usd": agent_result.cost_usd,
                 "tool_calls": agent_result.tool_call_count,
+                "replans": agent_result.replans,
             },
         )
 
@@ -129,3 +130,4 @@ class AgentResult:
     confidence: str  # low | medium | high
     cost_usd: float = 0.0
     tool_call_count: int = 0
+    replans: int = 0
