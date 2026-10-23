@@ -302,3 +302,83 @@ async def test_unknown_tool_steps_dropped_plan_still_valid(
 
     assert result.failure is None
     assert "3 days" in result.answer
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_get_document_versions_tool_real_data(policy_doc) -> None:
+    """The versions tool queries the real table and respects authorization."""
+    import uuid as _uuid
+
+    import pytest as _pytest
+    from sqlalchemy import select, update
+
+    from apps.api.app.core.db import session_scope
+    from apps.api.app.models.document import Document, DocumentVersion
+    from apps.api.app.models.user import User
+    from src.agents.tools import execute_tool
+
+    # seed_doc does not create version rows - add one so the tool has real data
+    async with session_scope() as s0:
+        s0.add(
+            DocumentVersion(
+                document_id=_uuid.UUID(policy_doc.document_id),
+                version=1,
+                content_hash="hash-1",
+                change_summary="initial ingest",
+            )
+        )
+
+    async with session_scope() as session:
+        alice = await session.scalar(select(User).where(User.email == "alice@demo.dev"))
+        user = AuthUser(
+            id=str(alice.id),
+            email=alice.email,
+            name=alice.name,
+            role_slug=alice.role_slug,
+            permissions=frozenset(["read:document", "admin"]),
+            projects=frozenset(),
+            departments=frozenset(),
+        )
+        result = await execute_tool(
+            tool_name="get_document_versions",
+            args={"document_id": policy_doc.document_id},
+            sub_question="versions",
+            user=user,
+            session=session,
+            retrieval_strategy="hybrid_reranked",
+            top_k=5,
+        )
+        assert result.metadata["versions"], "expected the real version row"
+        assert result.metadata["versions"][0]["version"] == 1
+        assert result.chunks, "expected a synthetic evidence chunk"
+        assert "Remote Work Policy" in result.chunks[0].content
+
+    # Restrict the doc; an employee must get PermissionError
+    async with session_scope() as s2:
+        await s2.execute(
+            update(Document)
+            .where(Document.id == policy_doc.document_id)
+            .values(access_policy={"roles": ["manager", "administrator"]})
+        )
+
+    carol_user = AuthUser(
+        id="00000000-0000-0000-0000-000000000001",
+        email="carol@demo.dev",
+        name="Carol",
+        role_slug="employee",
+        permissions=frozenset(["read:document"]),
+        projects=frozenset(),
+        departments=frozenset(),
+    )
+    async with session_scope() as session:
+        with _pytest.raises(PermissionError, match="Not authorized"):
+            await execute_tool(
+                tool_name="get_document_versions",
+                args={"document_id": policy_doc.document_id},
+                sub_question="versions",
+                user=carol_user,
+                session=session,
+                retrieval_strategy="hybrid_reranked",
+                top_k=5,
+            )
