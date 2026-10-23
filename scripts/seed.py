@@ -37,25 +37,44 @@ ROLE_PERMISSIONS = {
 
 USERS = [
     {
+        # Fixed UUIDs: tests and golden references rely on stable demo-user
+        # ids across environments (same philosophy as scripts.seed_fixtures).
+        # alice's id is asserted by tests/integration/test_clarify_conflict_agent.py
+        # and tests/integration/test_retrieval_event_cost.py.
+        "id": "03087f39-f7df-4bb9-a9cb-07cbd5a60db5",
         "email": "alice@demo.dev",
         "name": "Alice Admin",
         "password": "password123",
         "role": "administrator",
     },
-    {"email": "bob@demo.dev", "name": "Bob Manager", "password": "password123", "role": "manager"},
     {
+        "id": "bf626e2d-2aca-51c7-879a-3b76ccf17174",
+        "email": "bob@demo.dev",
+        "name": "Bob Manager",
+        "password": "password123",
+        "role": "manager",
+    },
+    {
+        "id": "80c05613-0af4-57fb-beb2-214cb7b4b4c9",
         "email": "carol@demo.dev",
         "name": "Carol Employee",
         "password": "password123",
         "role": "employee",
     },
     {
+        "id": "1937ade0-e053-5252-bd04-f434c5f55eac",
         "email": "dave@demo.dev",
         "name": "Dave Professor",
         "password": "password123",
         "role": "professor",
     },
-    {"email": "eve@demo.dev", "name": "Eve Student", "password": "password123", "role": "student"},
+    {
+        "id": "7d8a433a-ce60-5205-8be7-3b4be4b32661",
+        "email": "eve@demo.dev",
+        "name": "Eve Student",
+        "password": "password123",
+        "role": "student",
+    },
 ]
 
 
@@ -103,12 +122,13 @@ async def seed() -> None:
                     )
         await session.flush()
 
-        # Users
+        # Users (upsert by email; existing rows keep their original id —
+        # databases seeded before the fixed-id change are unaffected)
         for u in USERS:
             existing = await session.scalar(select(User).where(User.email == u["email"]))
             if existing is None:
                 user = User(
-                    id=uuid.uuid4(),
+                    id=uuid.UUID(u["id"]),
                     email=u["email"],
                     name=u["name"],
                     password_hash=User.hash_password(u["password"]),
